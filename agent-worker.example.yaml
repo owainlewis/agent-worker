@@ -1,0 +1,52 @@
+# Agent Worker Configuration
+# Copy this file and update with your own values:
+#   cp agent-worker.example.yaml agent-worker.yaml
+
+linear:
+  # Your Linear project UUID (required)
+  # Find it in Linear: Settings > Projects > click project > copy ID from URL
+  project_id: "your-project-uuid-here"
+
+  # How often to poll Linear for new tickets, in seconds (default: 60)
+  poll_interval_seconds: 60
+
+  # Map your Linear workflow status names to agent lifecycle stages (required)
+  # These must match your Linear team's workflow status names exactly
+  statuses:
+    ready: "Todo"            # Status that marks a ticket as ready for the agent
+    in_progress: "In Progress" # Status set when the agent picks up a ticket
+    done: "Done"             # Status set when the agent completes a ticket
+    failed: "Canceled"       # Status set when the agent fails a ticket
+
+repo:
+  # Absolute path to the git repository the agent works in (required)
+  path: "/path/to/your/repo"
+
+hooks:
+  # Shell commands to run BEFORE Claude Code is invoked (optional)
+  # If any command fails, the ticket is marked failed and Claude is not invoked
+  # Supports variables: {id} (ticket ID), {title} (slugified title), {branch} (branch name)
+  pre:
+    - "git checkout main"
+    - "git pull origin main"
+    - "git checkout -b agent/task-{id}"
+
+  # Shell commands to run AFTER Claude Code completes successfully (optional)
+  # If any command fails, the ticket is marked failed
+  post:
+    - "bun run lint"
+    - "bun run test"
+    - "git add -A"
+    - "git commit -m 'feat: {title}'"
+    - "git push origin agent/task-{id}"
+
+claude:
+  # Maximum time in seconds for Claude Code to complete (default: 300)
+  timeout_seconds: 300
+
+  # Number of retry attempts on failure, 0-3 (default: 0)
+  retries: 0
+
+log:
+  # Path to log file (optional — omit for stdout-only logging)
+  file: "./agent-worker.log"

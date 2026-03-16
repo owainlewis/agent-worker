@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bun init:*)",
+      "Bash(bun add:*)",
+      "Bash(bun test:*)",
+      "Bash(bun run:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(LINEAR_API_KEY=test-key timeout 2 bun run src/index.ts --config agent-worker.example.yaml)"
+    ]
+  }
+}

@@ -3,6 +3,7 @@ import type { Ticket } from "../providers/types.ts";
 export type TaskVars = {
   id: string;
   title: string;
+  raw_title: string;
   branch: string;
 };
 
@@ -13,10 +14,15 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export function sanitizeTitle(text: string): string {
+  return text.replace(/['`$\\]/g, "");
+}
+
 export function buildTaskVars(ticket: Ticket): TaskVars {
   return {
     id: ticket.identifier,
     title: slugify(ticket.title),
+    raw_title: sanitizeTitle(ticket.title),
     branch: `agent/task-${ticket.identifier}`,
   };
 }
@@ -25,5 +31,6 @@ export function interpolate(template: string, vars: TaskVars): string {
   return template
     .replaceAll("{id}", vars.id)
     .replaceAll("{title}", vars.title)
+    .replaceAll("{raw_title}", vars.raw_title)
     .replaceAll("{branch}", vars.branch);
 }

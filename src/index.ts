@@ -1,8 +1,10 @@
 import { loadConfig } from "./config.ts";
 import { createLogger } from "./logger.ts";
+import { printSplash } from "./format.ts";
 import { createLinearProvider } from "./providers/linear.ts";
 import { createPoller } from "./poller.ts";
 import { processTicket } from "./scheduler.ts";
+import { version } from "../package.json";
 
 function main() {
   const configIndex = process.argv.indexOf("--config");
@@ -23,6 +25,8 @@ function main() {
     );
     process.exit(1);
   }
+
+  printSplash(version);
 
   const logger = createLogger({
     level: config.log.level,

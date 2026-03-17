@@ -85,8 +85,9 @@ hooks:
   post:                               # Commands to run after the agent succeeds (optional)
     - "bun run test"
     - "git add -A"
-    - "git commit -m 'feat: {title}'"
-    - "git push origin agent/task-{id}"
+    - "git commit -m '{id}: {raw_title}'"
+    - "git push origin {branch}"
+    - "gh pr create --title '{id}: {raw_title}' --body 'Fixes {id}. Implemented by Agent Worker.' --base main"
 
 executor:
   type: claude                        # Agent harness: "claude" or "codex"
@@ -103,6 +104,7 @@ Hook commands support variable interpolation:
 |---|---|
 | `{id}` | Linear ticket identifier (e.g. `ENG-42`) |
 | `{title}` | Slugified ticket title (e.g. `add-login-page`) |
+| `{raw_title}` | Original ticket title, sanitized for shell safety (e.g. `Add login page`) |
 | `{branch}` | Generated branch name (`agent/task-{id}`) |
 
 ## Usage

@@ -1,4 +1,5 @@
 import { appendFileSync } from "fs";
+import { formatConsoleLine, isTTY } from "./format.ts";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -36,24 +37,36 @@ export function createLogger(options: {
   function write(level: LogLevel, msg: string, ctx?: Record<string, unknown>) {
     if (LEVEL_ORDER[level] < minLevel) return;
 
-    const entry = {
-      ...ctx,
-      timestamp: new Date().toISOString(),
-      level,
-      message: msg,
-    };
-
-    const line = redact(JSON.stringify(entry));
+    // Console output: human-readable for TTY, JSON for non-TTY
+    const consoleLine = isTTY
+      ? redact(formatConsoleLine(level, msg, ctx))
+      : redact(
+          JSON.stringify({
+            ...ctx,
+            timestamp: new Date().toISOString(),
+            level,
+            message: msg,
+          })
+        );
 
     if (level === "error" || level === "warn") {
-      console.error(line);
+      console.error(consoleLine);
     } else {
-      console.log(line);
+      console.log(consoleLine);
     }
 
+    // File output: always JSON
     if (filePath) {
+      const jsonLine = redact(
+        JSON.stringify({
+          ...ctx,
+          timestamp: new Date().toISOString(),
+          level,
+          message: msg,
+        })
+      );
       try {
-        appendFileSync(filePath, line + "\n");
+        appendFileSync(filePath, jsonLine + "\n");
       } catch {
         // Best-effort file logging — don't crash if file write fails
       }

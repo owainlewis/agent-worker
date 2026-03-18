@@ -26,19 +26,18 @@ hooks:
   # Shell commands to run BEFORE the agent is invoked (optional)
   # If any command fails, the ticket is marked failed and the agent is not invoked
   # Supports variables: {id} (ticket ID), {title} (slugified title), {branch} (branch name)
-  pre:
-    - "git checkout main"
-    - "git pull origin main"
-    - "git checkout -b agent/task-{id}"
+  # Note: When using the Claude executor, a git worktree is created automatically
+  # so you don't need branch/checkout commands in pre-hooks.
+  # Codex manages its own worktrees, so hooks run in the original repo path.
+  pre: []
 
   # Shell commands to run AFTER the agent completes successfully (optional)
   # If any command fails, the ticket is marked failed
   post:
-    - "bun run lint"
-    - "bun run test"
     - "git add -A"
-    - "git commit -m 'feat: {title}'"
-    - "git push origin agent/task-{id}"
+    - "git commit -m '{id}: {raw_title}'"
+    - "git push origin {branch}"
+    - "gh pr create --title '{id}: {raw_title}' --body 'Fixes {id}. Implemented by Agent Worker.' --base main"
 
 executor:
   # Agent harness to use: "claude" (default) or "codex"

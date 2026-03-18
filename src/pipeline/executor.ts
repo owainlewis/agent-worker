@@ -11,6 +11,8 @@ export type ExecutorResult = {
 
 export interface CodeExecutor {
   name: string;
+  /** Whether the pipeline should create an isolated git worktree for this executor. */
+  needsWorktree: boolean;
   run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult>;
 }
 

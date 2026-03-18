@@ -5,6 +5,7 @@ import { streamToLines } from "./executor.ts";
 export function createCodexExecutor(): CodeExecutor {
   return {
     name: "codex",
+    needsWorktree: false,
     async run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult> {
       logger.info("Codex started", { timeoutMs });
 

@@ -5,6 +5,7 @@ import { streamToLines } from "./executor.ts";
 export function createClaudeExecutor(): CodeExecutor {
   return {
     name: "claude",
+    needsWorktree: true,
     async run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult> {
       logger.info("Claude Code started", { timeoutMs });
 

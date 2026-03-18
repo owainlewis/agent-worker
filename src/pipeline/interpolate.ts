@@ -32,5 +32,6 @@ export function interpolate(template: string, vars: TaskVars): string {
     .replaceAll("{id}", vars.id)
     .replaceAll("{title}", vars.title)
     .replaceAll("{raw_title}", vars.raw_title)
-    .replaceAll("{branch}", vars.branch);
+    .replaceAll("{branch}", vars.branch)
+    .replaceAll("{date}", new Date().toISOString());
 }

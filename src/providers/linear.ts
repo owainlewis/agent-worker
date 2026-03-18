@@ -37,6 +37,16 @@ export function createLinearProvider(options: {
   statuses: StatusMap;
 }): TicketProvider {
   const client = new LinearClient({ apiKey: options.apiKey });
+  const stateCache = new Map<string, { id: string; name: string }[]>();
+
+  async function getTeamStates(teamId: string): Promise<{ id: string; name: string }[]> {
+    if (stateCache.has(teamId)) return stateCache.get(teamId)!;
+    const team = await client.team(teamId);
+    const states = await team.states();
+    const nodes = states.nodes.map((s) => ({ id: s.id, name: s.name }));
+    stateCache.set(teamId, nodes);
+    return nodes;
+  }
 
   return {
     async fetchReadyTickets(): Promise<Ticket[]> {

@@ -81,4 +81,9 @@ describe("interpolate", () => {
   test("replaces multiple occurrences", () => {
     expect(interpolate("{id}-{id}", vars)).toBe("ENG-123-ENG-123");
   });
+
+  test("replaces {date} with an ISO 8601 date string", () => {
+    const result = interpolate("run at {date}", vars);
+    expect(result).toMatch(/^run at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
 });

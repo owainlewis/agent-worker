@@ -165,6 +165,88 @@ agent-worker --config ./agent-worker.yaml
 
 Each process claims different tickets (the `in_progress` status transition acts as a distributed lock) and works in a separate worktree, so there are no conflicts.
 
+## Claude executor
+
+The Claude executor invokes [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) as a headless subprocess:
+
+```
+claude --print --dangerously-skip-permissions -p "<ticket prompt>"
+```
+
+- `--print` — non-interactive mode; Claude reads the prompt, does the work, and exits.
+- `--dangerously-skip-permissions` — suppresses interactive permission prompts so the agent can run fully autonomously.
+- `-p` — passes the ticket title and description as the initial prompt.
+
+The executor streams stdout and stderr to the agent-worker log in real time and returns success if the process exits with code `0`.
+
+### Worktree isolation
+
+When `executor.type` is `claude`, the pipeline automatically creates an isolated git worktree before invoking the agent (see [Git worktree isolation](#git-worktree-isolation)). The agent runs inside that worktree so its changes are fully isolated from `main` and from other in-flight tickets.
+
+### CLAUDE.md — project-specific instructions
+
+Claude Code reads a `CLAUDE.md` file from the root of the worktree if one exists. Use this file to give the agent project-specific context it needs to do the work correctly:
+
+```markdown
+# My Project
+
+## Stack
+- Runtime: Bun
+- Language: TypeScript
+- Testing: `bun test`
+
+## Conventions
+- No classes — use plain functions and interfaces
+- All API routes under /api/v1/
+```
+
+Place `CLAUDE.md` in the root of your repository. It is checked in alongside your code and is inherited by every worktree the agent runs in. The agent reads it on startup and follows its instructions throughout the task.
+
+### Timeout and retry configuration
+
+Control how long the agent is allowed to run and how many times to retry on failure:
+
+```yaml
+executor:
+  type: claude
+  timeout_seconds: 300   # Kill the agent if it hasn't finished within this many seconds (default: 300)
+  retries: 0             # Retry attempts on non-zero exit or timeout (0–3, default: 0)
+```
+
+If `timeout_seconds` is exceeded the process is killed and the ticket is marked failed. If `retries` is greater than `0`, the full pipeline (pre-hooks → agent → post-hooks) is retried up to that many times before giving up.
+
+### Full example config
+
+```yaml
+linear:
+  project_id: "your-project-uuid"
+  poll_interval_seconds: 60
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+
+repo:
+  path: "/path/to/your/repo"
+
+hooks:
+  pre: []                             # Worktree + branch are created automatically
+  post:
+    - "git add -A"
+    - "git commit -m '{id}: {raw_title}'"
+    - "git push origin {branch}"
+    - "gh pr create --title '{id}: {raw_title}' --body 'Fixes {id}.' --base main"
+
+executor:
+  type: claude
+  timeout_seconds: 300
+  retries: 0
+
+log:
+  file: "./agent-worker.log"
+```
+
 ## Development
 
 ```bash

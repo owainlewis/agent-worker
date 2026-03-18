@@ -2,7 +2,7 @@ import type { Logger } from "./logger.ts";
 import type { Config } from "./config.ts";
 import type { Ticket, TicketProvider } from "./providers/types.ts";
 import { executePipeline } from "./pipeline/pipeline.ts";
-import { createExecutor } from "./pipeline/executor.ts";
+import { createExecutor, type CodeExecutor } from "./pipeline/executor.ts";
 
 function lastNLines(text: string, n: number): string {
   const lines = text.split("\n");
@@ -14,6 +14,7 @@ export async function processTicket(options: {
   provider: TicketProvider;
   config: Config;
   logger: Logger;
+  executor?: CodeExecutor;
 }): Promise<void> {
   const { ticket, provider, config, logger } = options;
 
@@ -29,7 +30,7 @@ export async function processTicket(options: {
     return;
   }
 
-  const executor = createExecutor(config.executor.type);
+  const executor = options.executor ?? createExecutor(config.executor.type);
 
   // Run pipeline with retries
   let lastResult: Awaited<ReturnType<typeof executePipeline>> | undefined;

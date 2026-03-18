@@ -68,17 +68,15 @@ export function createLinearProvider(options: {
     },
 
     async transitionStatus(ticketId: string, statusName: string): Promise<void> {
-      await withBackoff(async () => {
-        const issue = await client.issue(ticketId);
-        const team = await issue.team;
-        if (!team) throw new Error(`No team found for issue ${ticketId}`);
+      const issue = await withBackoff(() => client.issue(ticketId));
+      const team = await issue.team;
+      if (!team) throw new Error(`No team found for issue ${ticketId}`);
 
-        const states = await team.states();
-        const target = states.nodes.find((s) => s.name === statusName);
-        if (!target) throw new Error(`Status "${statusName}" not found on team`);
+      const states = await getTeamStates(team.id);
+      const target = states.find((s) => s.name === statusName);
+      if (!target) throw new Error(`Status "${statusName}" not found on team`);
 
-        await client.updateIssue(ticketId, { stateId: target.id });
-      });
+      await withBackoff(() => client.updateIssue(ticketId, { stateId: target.id }));
     },
 
     async postComment(ticketId: string, body: string): Promise<void> {

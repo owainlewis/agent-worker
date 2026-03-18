@@ -7,6 +7,11 @@ import { processTicket } from "./scheduler.ts";
 import { version } from "../package.json";
 
 function main() {
+  if (process.argv.includes("--version")) {
+    console.log(version);
+    process.exit(0);
+  }
+
   const configIndex = process.argv.indexOf("--config");
   if (configIndex === -1 || !process.argv[configIndex + 1]) {
     console.error("Usage: agent-worker --config <path>");

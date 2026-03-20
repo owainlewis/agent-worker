@@ -9,6 +9,8 @@ export function createPoller(options: {
 }): { start: () => Promise<void>; stop: () => void } {
   let isRunning = false;
   let wakeSleep: (() => void) | null = null;
+  let pollCount = 0;
+  const startTime = Date.now();
 
   function interruptibleSleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
@@ -28,6 +30,13 @@ export function createPoller(options: {
     async start() {
       isRunning = true;
       while (isRunning) {
+        pollCount++;
+        const uptimeMs = Date.now() - startTime;
+        const totalSeconds = Math.floor(uptimeMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const uptime = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+        options.logger.info(`Poll #${pollCount} (uptime: ${uptime}) — checking for tickets...`);
         try {
           const tickets = await options.provider.fetchReadyTickets();
           if (tickets.length > 0) {

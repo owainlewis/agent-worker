@@ -96,6 +96,40 @@ describe("createPoller", () => {
     expect(callCount).toBeGreaterThanOrEqual(3);
   });
 
+  test("logs poll count and uptime on each cycle", async () => {
+    const infoMessages: string[] = [];
+    const capturingLogger: Logger = {
+      debug: () => {},
+      info: (msg: string) => { infoMessages.push(msg); },
+      warn: () => {},
+      error: () => {},
+    };
+    let pollCount = 0;
+
+    const provider: TicketProvider = {
+      fetchReadyTickets: async () => {
+        pollCount++;
+        if (pollCount >= 2) poller.stop();
+        return [];
+      },
+      transitionStatus: async () => {},
+      postComment: async () => {},
+    };
+
+    const poller = createPoller({
+      provider,
+      intervalMs: 10,
+      logger: capturingLogger,
+      onTicket: async () => {},
+    });
+
+    await poller.start();
+
+    expect(infoMessages.length).toBeGreaterThanOrEqual(2);
+    expect(infoMessages[0]).toMatch(/^Poll #1 \(uptime: \d+s\) — checking for tickets\.\.\.$/);
+    expect(infoMessages[1]).toMatch(/^Poll #2 \(uptime: \d+[ms ]*\d*s?\) — checking for tickets\.\.\.$/);
+  });
+
   test("stops when stop() is called", async () => {
     let pollCount = 0;
 

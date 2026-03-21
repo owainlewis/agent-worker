@@ -35,7 +35,7 @@ export function createGitHubProvider(config: GitHubScmConfig): ScmProvider {
   return {
     async findPullRequest(branch: string): Promise<PullRequest | null> {
       logger.debug("Finding pull request", { branch });
-      const res = await ghFetch(`/pulls?head=${owner}:${encodeURIComponent(branch)}&state=open&per_page=1`);
+      const res = await ghFetch(`/pulls?head=${owner}:${encodeURIComponent(branch)}&state=all&per_page=5`);
       const prs = (await res.json()) as unknown[];
 
       if (!Array.isArray(prs) || prs.length === 0) {
@@ -43,13 +43,23 @@ export function createGitHubProvider(config: GitHubScmConfig): ScmProvider {
         return null;
       }
 
-      const pr = prs[0] as Record<string, unknown>;
-      logger.debug("Found pull request", { branch, prNumber: pr.number });
+      // Prefer open PRs; fall back to most recent merged/closed
+      const sorted = (prs as Record<string, unknown>[]).sort((a, b) => {
+        const aOpen = a.state === "open" ? 0 : 1;
+        const bOpen = b.state === "open" ? 0 : 1;
+        if (aOpen !== bOpen) return aOpen - bOpen;
+        return new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime();
+      });
+      const pr = sorted[0]!;
+      const ghState = pr.state as string;
+      const merged = pr.merged_at !== null && pr.merged_at !== undefined;
+      const state: PullRequest["state"] = merged ? "merged" : ghState === "open" ? "open" : "closed";
+      logger.debug("Found pull request", { branch, prNumber: pr.number, state });
       return {
         number: pr.number as number,
         url: pr.html_url as string,
         branch: branch,
-        state: "open",
+        state,
       };
     },
 

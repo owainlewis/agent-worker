@@ -34,7 +34,7 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
     async findPullRequest(branch: string): Promise<PullRequest | null> {
       logger.debug("Finding pull request", { branch });
       const res = await bbFetch(
-        `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/pull-requests?at=refs/heads/${encodeURIComponent(branch)}&state=OPEN&limit=1`
+        `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/pull-requests?at=refs/heads/${encodeURIComponent(branch)}&state=ALL&limit=5`
       );
       const data = (await res.json()) as Record<string, unknown>;
       const values = data.values as Record<string, unknown>[] | undefined;
@@ -44,13 +44,22 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
         return null;
       }
 
-      const pr = values[0]!;
-      logger.debug("Found pull request", { branch, prNumber: pr.id });
+      // Prefer open PRs; fall back to most recent merged/closed
+      const sorted = values.sort((a, b) => {
+        const aOpen = a.state === "OPEN" ? 0 : 1;
+        const bOpen = b.state === "OPEN" ? 0 : 1;
+        if (aOpen !== bOpen) return aOpen - bOpen;
+        return new Date(b.createdDate as string).getTime() - new Date(a.createdDate as string).getTime();
+      });
+      const pr = sorted[0]!;
+      const bbState = pr.state as string;
+      const state: PullRequest["state"] = bbState === "MERGED" ? "merged" : bbState === "OPEN" ? "open" : "closed";
+      logger.debug("Found pull request", { branch, prNumber: pr.id, state });
       return {
         number: pr.id as number,
         url: `${baseUrl}/projects/${project}/repos/${repo}/pull-requests/${pr.id}`,
         branch,
-        state: "open",
+        state,
       };
     },
 

@@ -19,6 +19,7 @@ export function createFeedbackPoller(options: {
   const prefix = config.feedback.comment_prefix;
   const intervalMs = config.feedback.poll_interval_seconds * 1000;
 
+  const resolved = new Set<string>(); // ticket IDs already transitioned to verification
   let isRunning = false;
   let wakeSleep: (() => void) | null = null;
 
@@ -73,9 +74,14 @@ export function createFeedbackPoller(options: {
           const tickets = await provider.fetchTicketsByStatus(codeReviewStatus);
 
           for (const ticket of tickets) {
+            if (resolved.has(ticket.id)) {
+              log.debug("Skipping already resolved ticket", { ticketId: ticket.identifier });
+              continue;
+            }
+
             const tracked = prTracker.get(ticket.id);
 
-            if (!tracked) {
+            if (!tracked || tracked.prNumber === 0) {
               // Discover PR by branch name
               const branch = `agent/task-${ticket.identifier}`;
               try {
@@ -100,30 +106,36 @@ export function createFeedbackPoller(options: {
                   error: err instanceof Error ? err.message : String(err),
                 });
               }
-              continue;
+              // Re-read tracked entry so the merge check below runs immediately
+              const updated = prTracker.get(ticket.id);
+              if (!updated) continue;
             }
+
+            // Re-fetch tracked after possible discovery
+            const current = prTracker.get(ticket.id)!;
 
             // Check if PR is merged
             try {
-              const merged = await scm.isPRMerged(tracked.prNumber);
+              const merged = await scm.isPRMerged(current.prNumber);
               if (merged) {
                 await provider.transitionStatus(ticket.id, verificationStatus);
                 await provider.postComment(ticket.id, [
                   "## Agent Worker — PR Merged",
                   "",
-                  `PR #${tracked.prNumber} has been merged.`,
+                  `PR #${current.prNumber} has been merged.`,
                 ].join("\n"));
                 log.info("PR merged, ticket moved to verification", {
                   ticketId: ticket.identifier,
-                  prNumber: tracked.prNumber,
+                  prNumber: current.prNumber,
                 });
                 prTracker.untrack(ticket.id);
+                resolved.add(ticket.id);
                 continue;
               }
             } catch (err) {
               log.debug("Failed to check PR merge status", {
                 ticketId: ticket.identifier,
-                prNumber: tracked.prNumber,
+                prNumber: current.prNumber,
                 error: err instanceof Error ? err.message : String(err),
               });
             }
@@ -131,21 +143,21 @@ export function createFeedbackPoller(options: {
             // Fetch new PR comments
             let actionableComments: FeedbackEvent[] = [];
             try {
-              const prComments = await scm.getPRComments(tracked.prNumber, tracked.lastCommentCheck);
+              const prComments = await scm.getPRComments(current.prNumber, current.lastCommentCheck);
               actionableComments = actionableComments.concat(
                 findActionableComments(prComments, prefix).map((c) => ({ ...c, source: "pr" as const }))
               );
             } catch (err) {
               log.debug("Failed to fetch PR comments", {
                 ticketId: ticket.identifier,
-                prNumber: tracked.prNumber,
+                prNumber: current.prNumber,
                 error: err instanceof Error ? err.message : String(err),
               });
             }
 
             // Fetch new ticket comments
             try {
-              const ticketComments = await provider.fetchComments(ticket.id, tracked.lastCommentCheck);
+              const ticketComments = await provider.fetchComments(ticket.id, current.lastCommentCheck);
               actionableComments = actionableComments.concat(
                 findActionableComments(ticketComments, prefix).map((c) => ({ ...c, source: "ticket" as const }))
               );

@@ -168,12 +168,14 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
       const res = await planeFetch(`/projects/${project_id}/issues/?${params}`);
       const data = (await res.json()) as PlaneIssuesResponse;
 
-      const tickets = data.results.map((issue) => ({
-        id: issue.id,
-        identifier: makeIdentifier(issue, identifier),
-        title: issue.name,
-        description: issue.description_html ?? undefined,
-      }));
+      const tickets = data.results
+        .filter((issue) => issue.state === target.id)
+        .map((issue) => ({
+          id: issue.id,
+          identifier: makeIdentifier(issue, identifier),
+          title: issue.name,
+          description: issue.description_html ?? undefined,
+        }));
       logger.debug("Fetched tickets by status", { status: statusName, count: tickets.length });
       return tickets;
     },
@@ -190,7 +192,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
         method: "PATCH",
         body: JSON.stringify({ state: target.id }),
       });
-      logger.debug("Ticket status transitioned", { ticketId, to: statusName });
+      logger.debug("Ticket status transitioned", { ticketId, to: statusName, stateId: target.id });
     },
 
     async postComment(ticketId: string, body: string): Promise<void> {

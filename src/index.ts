@@ -92,10 +92,17 @@ function main() {
     feedbackPoller.stop();
   });
 
-  poller.start().then(() => {
-    process.exit(0);
-  }).catch((err) => {
-    log.error("Fatal error", {
+  // Both pollers run in parallel. Only exit on signal (via stop()).
+  // Wire up error handlers to surface fatal rejections.
+  poller.start().catch((err) => {
+    log.error("Main poller fatal error", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    process.exit(1);
+  });
+
+  feedbackPoller.start().catch((err) => {
+    log.error("Feedback poller fatal error", {
       error: err instanceof Error ? err.message : String(err),
     });
     process.exit(1);

@@ -48,6 +48,7 @@ export async function createWorktree(
 export async function removeWorktree(
   repoPath: string,
   worktreePath: string,
+  branch: string,
   logger: Logger
 ): Promise<void> {
   logger.info("Removing worktree", { worktreePath });
@@ -66,6 +67,24 @@ export async function removeWorktree(
 
   if (exitCode !== 0) {
     logger.warn("Failed to remove worktree", { worktreePath, error: stderr.trim() });
+    return;
+  }
+
+  // Delete the branch we created so subsequent runs don't fail with "branch already exists"
+  const deleteProc = Bun.spawn(["sh", "-c", `git branch -D ${branch}`], {
+    cwd: repoPath,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const [deleteExitCode, __, deleteStderr] = await Promise.all([
+    deleteProc.exited,
+    new Response(deleteProc.stdout).text(),
+    new Response(deleteProc.stderr).text(),
+  ]);
+
+  if (deleteExitCode !== 0) {
+    logger.warn("Failed to delete branch", { branch, error: deleteStderr.trim() });
   }
 }
 
@@ -144,7 +163,7 @@ export async function executePipeline(options: {
     return { success: true, output: execResult.output };
   } finally {
     if (worktreePath) {
-      await removeWorktree(repoCwd, worktreePath, logger);
+      await removeWorktree(repoCwd, worktreePath, vars.branch, logger);
     }
   }
 }

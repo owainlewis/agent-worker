@@ -35,9 +35,6 @@ interface PlaneIssue {
   name: string;
   description_html: string | null;
   state: string;
-  project_detail: {
-    identifier: string;
-  };
 }
 
 interface PlaneIssuesResponse {
@@ -77,6 +74,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
   const { workspace_slug, project_id } = config;
 
   const stateCache = new Map<string, PlaneState[]>();
+  let projectIdentifier: string | undefined;
 
   async function planeFetch(path: string, options?: RequestInit): Promise<Response> {
     const url = `${baseUrl}/api/v1/workspaces/${workspace_slug}${path}`;
@@ -106,12 +104,21 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
     return states;
   }
 
-  function makeIdentifier(issue: PlaneIssue): string {
-    return `${issue.project_detail.identifier}-${issue.sequence_id}`;
+  async function getProjectIdentifier(): Promise<string> {
+    if (projectIdentifier) return projectIdentifier;
+    const res = await planeFetch(`/projects/${project_id}/`);
+    const data = (await res.json()) as { identifier: string };
+    projectIdentifier = data.identifier;
+    return projectIdentifier;
+  }
+
+  function makeIdentifier(issue: PlaneIssue, identifier: string): string {
+    return `${identifier}-${issue.sequence_id}`;
   }
 
   return {
     async fetchReadyTickets(): Promise<Ticket[]> {
+      const identifier = await getProjectIdentifier();
       const params = new URLSearchParams();
       params.set("query", config.query);
       const res = await planeFetch(`/projects/${project_id}/issues/?${params}`);
@@ -119,7 +126,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
 
       return data.results.map((issue) => ({
         id: issue.id,
-        identifier: makeIdentifier(issue),
+        identifier: makeIdentifier(issue, identifier),
         title: issue.name,
         description: issue.description_html ?? undefined,
       }));
@@ -130,6 +137,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
       const target = states.find((s) => s.name === statusName);
       if (!target) return [];
 
+      const identifier = await getProjectIdentifier();
       const params = new URLSearchParams();
       params.set("query", `state:${target.id}`);
       const res = await planeFetch(`/projects/${project_id}/issues/?${params}`);
@@ -137,7 +145,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
 
       return data.results.map((issue) => ({
         id: issue.id,
-        identifier: makeIdentifier(issue),
+        identifier: makeIdentifier(issue, identifier),
         title: issue.name,
         description: issue.description_html ?? undefined,
       }));

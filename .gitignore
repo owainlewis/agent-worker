@@ -30,6 +30,7 @@ agent-worker.yaml
 .cache
 *.tsbuildinfo
 .bun-build*
+*.bun-build
 
 # IntelliJ based IDEs
 .idea

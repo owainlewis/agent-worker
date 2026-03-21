@@ -119,14 +119,33 @@ export function createFeedbackPoller(options: {
               const merged = await scm.isPRMerged(current.prNumber);
               if (merged) {
                 await provider.transitionStatus(ticket.id, verificationStatus);
-                await provider.postComment(ticket.id, [
+
+                const mergeInfo = await scm.getPRMergeInfo(current.prNumber);
+                const shortSha = mergeInfo?.sha ? mergeInfo.sha.slice(0, 7) : "unknown";
+
+                const lines: string[] = [
                   "## Agent Worker — PR Merged",
                   "",
-                  `PR #${current.prNumber} has been merged.`,
-                ].join("\n"));
+                  `PR #${current.prNumber} has been merged. Ticket moved to **${verificationStatus}**.`,
+                ];
+
+                if (mergeInfo) {
+                  lines.push(
+                    "",
+                    `**PR:** ${mergeInfo.url}`,
+                    `**Commit:** \`${shortSha}\``,
+                  );
+                  if (mergeInfo.summary) {
+                    lines.push(`**Summary:** ${mergeInfo.summary}`);
+                  }
+                }
+
+                await provider.postComment(ticket.id, lines.join("\n"));
+
                 log.info("PR merged, ticket moved to verification", {
                   ticketId: ticket.identifier,
                   prNumber: current.prNumber,
+                  sha: mergeInfo?.sha ?? "unknown",
                 });
                 prTracker.untrack(ticket.id);
                 resolved.add(ticket.id);

@@ -12,8 +12,15 @@ export interface PRComment {
   createdAt: string;
 }
 
+export interface MergeInfo {
+  url: string;
+  sha: string;
+  summary: string;
+}
+
 export interface ScmProvider {
   findPullRequest(branch: string): Promise<PullRequest | null>;
   getPRComments(prNumber: number, since?: string): Promise<PRComment[]>;
   isPRMerged(prNumber: number): Promise<boolean>;
+  getPRMergeInfo(prNumber: number): Promise<MergeInfo | null>;
 }

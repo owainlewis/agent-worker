@@ -97,5 +97,39 @@ export function createGitHubProvider(config: GitHubScmConfig): ScmProvider {
         return false;
       }
     },
+
+    async getPRMergeInfo(prNumber: number): Promise<{ url: string; sha: string; summary: string } | null> {
+      logger.debug("Fetching PR merge info", { prNumber });
+      try {
+        const res = await ghFetch(`/pulls/${prNumber}`);
+        const pr = (await res.json()) as Record<string, unknown>;
+        const mergeCommitSha = pr.merge_commit_sha as string | null;
+        const htmlUrl = pr.html_url as string;
+
+        if (!mergeCommitSha) {
+          logger.debug("No merge commit SHA found on PR", { prNumber });
+          return null;
+        }
+
+        let summary = "";
+        try {
+          const commitRes = await ghFetch(`/commits/${mergeCommitSha}`);
+          const commit = (await commitRes.json()) as Record<string, unknown>;
+          const message = ((commit.commit as Record<string, unknown>)?.message as string) ?? "";
+          summary = message.split("\n")[0] ?? "";
+        } catch {
+          logger.debug("Failed to fetch merge commit message", { prNumber, sha: mergeCommitSha });
+        }
+
+        logger.debug("PR merge info", { prNumber, sha: mergeCommitSha, summary });
+        return { url: htmlUrl, sha: mergeCommitSha, summary };
+      } catch (err) {
+        logger.debug("Failed to fetch PR merge info", {
+          prNumber,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      }
+    },
   };
 }

@@ -109,5 +109,46 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
         return false;
       }
     },
+
+    async getPRMergeInfo(prNumber: number): Promise<{ url: string; sha: string; summary: string } | null> {
+      logger.debug("Fetching PR merge info", { prNumber });
+      try {
+        const res = await bbFetch(
+          `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/pull-requests/${prNumber}`
+        );
+        const data = (await res.json()) as Record<string, unknown>;
+        const mergeCommit = data.mergeCommit as Record<string, unknown> | null | undefined;
+
+        if (!mergeCommit?.id) {
+          logger.debug("No merge commit found on PR", { prNumber });
+          return null;
+        }
+
+        const sha = mergeCommit.id as string;
+        const selfLink = ((data.links as Record<string, unknown>)?.self as Record<string, unknown>[])?.[0]?.href as string;
+        const url = selfLink ?? `${baseUrl}/projects/${project}/repos/${repo}/pull-requests/${prNumber}`;
+
+        let summary = "";
+        try {
+          const commitRes = await bbFetch(
+            `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/commits/${sha}`
+          );
+          const commitData = (await commitRes.json()) as Record<string, unknown>;
+          const message = (commitData.message as string) ?? "";
+          summary = message.split("\n")[0] ?? "";
+        } catch {
+          logger.debug("Failed to fetch merge commit message", { prNumber, sha });
+        }
+
+        logger.debug("PR merge info", { prNumber, sha, summary });
+        return { url, sha, summary };
+      } catch (err) {
+        logger.debug("Failed to fetch PR merge info", {
+          prNumber,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      }
+    },
   };
 }

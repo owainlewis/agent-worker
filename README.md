@@ -309,9 +309,9 @@ executor:
 
 If `timeout_seconds` is exceeded the process is killed and the ticket is marked failed. If `retries` is greater than `0`, the full pipeline (pre-hooks → agent → post-hooks) is retried up to that many times before giving up.
 
-### CLAUDE.md — project-specific instructions
+### AGENTS.md — project-specific instructions
 
-Claude Code reads a `CLAUDE.md` file from the root of the worktree if one exists. Use this file to give the agent project-specific context:
+Coding agents read an `AGENTS.md` file from the root of the worktree if one exists. Use this file to give the agent project-specific context:
 
 ```markdown
 # My Project
@@ -326,7 +326,7 @@ Claude Code reads a `CLAUDE.md` file from the root of the worktree if one exists
 - All API routes under /api/v1/
 ```
 
-Place `CLAUDE.md` in the root of your repository. It is checked in alongside your code and is inherited by every worktree the agent runs in.
+Place `AGENTS.md` in the root of your repository. It is checked in alongside your code and is inherited by every worktree the agent runs in.
 
 ## Debug mode
 

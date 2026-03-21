@@ -73,7 +73,8 @@ const ExecutorSchema = z.object({
 const LogSchema = z.object({
   file: z.string().optional(),
   level: z.enum(["debug", "info", "warn", "error"]).default("info"),
-}).default({ level: "info" });
+  redact: z.array(z.string()).default([]),
+}).default({ level: "info", redact: [] });
 
 // --- SCM schemas ---
 

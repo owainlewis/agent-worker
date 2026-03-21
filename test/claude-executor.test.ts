@@ -1,13 +1,5 @@
 import { describe, test, expect } from "bun:test";
 import { createClaudeExecutor } from "../src/pipeline/claude-executor.ts";
-import type { Logger } from "../src/logger.ts";
-
-const noopLogger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
 
 describe("createClaudeExecutor", () => {
   test("returns a CodeExecutor with name 'claude'", () => {
@@ -17,7 +9,7 @@ describe("createClaudeExecutor", () => {
 
   test("returns correct shape on failure (claude not installed)", async () => {
     const executor = createClaudeExecutor();
-    const result = await executor.run("test prompt", "/tmp", 2000, noopLogger);
+    const result = await executor.run("test prompt", "/tmp", 2000);
     // claude CLI likely not installed in test env
     expect(result).toHaveProperty("success");
     expect(result).toHaveProperty("output");

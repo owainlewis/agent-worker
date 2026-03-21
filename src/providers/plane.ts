@@ -1,5 +1,6 @@
 import type { Ticket, TicketComment, TicketProvider } from "./types.ts";
 import type { PlaneProviderConfig } from "../config.ts";
+import { log } from "../logger.ts";
 
 const INITIAL_DELAY_MS = 1000;
 const JITTER_MS = 500;
@@ -21,6 +22,7 @@ async function withBackoff<T>(
 
       if (!isRateLimit || attempt === maxRetries) throw err;
 
+      log.debug("Rate limited, backing off", { component: "plane", attempt, delayMs: delay + Math.random() * JITTER_MS });
       const jitter = Math.random() * JITTER_MS;
       await Bun.sleep(delay + jitter);
       delay = Math.min(delay * 2, MAX_DELAY_MS);
@@ -65,6 +67,7 @@ interface PlaneCommentsResponse {
 }
 
 export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider {
+  const logger = log.child("plane");
   const apiKey = process.env.PLANE_API_KEY;
   if (!apiKey) {
     throw new Error("PLANE_API_KEY environment variable is required for Plane provider");
@@ -79,6 +82,8 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
 
   async function planeFetch(path: string, options?: RequestInit): Promise<Response> {
     const url = `${baseUrl}/api/v1/workspaces/${workspace_slug}${path}`;
+    logger.debug("Plane API request", { method: options?.method ?? "GET", path });
+    const start = Date.now();
     const headers: Record<string, string> = { "x-api-key": key, "Content-Type": "application/json" };
     const extraHeaders = options?.headers;
     if (extraHeaders instanceof Headers) {
@@ -94,6 +99,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
         headers,
       })
     );
+    logger.debug("Plane API response", { path, status: res.status, durationMs: Date.now() - start });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`Plane API error ${res.status}: ${text}`);
@@ -103,15 +109,18 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
 
   async function getStates(): Promise<PlaneState[]> {
     if (stateCache.has(project_id)) return stateCache.get(project_id)!;
+    logger.debug("Fetching project states", { projectId: project_id });
     const res = await planeFetch(`/projects/${project_id}/states/`);
     const data = (await res.json()) as PlaneStatesResponse;
     const states = data.results;
     stateCache.set(project_id, states);
+    logger.debug("Cached project states", { projectId: project_id, count: states.length });
     return states;
   }
 
   async function getProjectIdentifier(): Promise<string> {
     if (projectIdentifier) return projectIdentifier;
+    logger.debug("Fetching project identifier", { projectId: project_id });
     const res = await planeFetch(`/projects/${project_id}/`);
     const data = (await res.json()) as { identifier: string };
     projectIdentifier = data.identifier;
@@ -124,6 +133,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
 
   return {
     async fetchReadyTickets(): Promise<Ticket[]> {
+      logger.debug("Fetching ready tickets", { projectId: project_id, query: config.query });
       const identifier = await getProjectIdentifier();
       const states = await getStates();
       const readyState = states.find((s) => s.name === config.statuses.ready);
@@ -134,7 +144,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
       const res = await planeFetch(`/projects/${project_id}/issues/?${params}`);
       const data = (await res.json()) as PlaneIssuesResponse;
 
-      return data.results
+      const tickets = data.results
         .filter((issue) => !readyStateId || issue.state === readyStateId)
         .map((issue) => ({
           id: issue.id,
@@ -142,9 +152,12 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
           title: issue.name,
           description: issue.description_html ?? undefined,
         }));
+      logger.debug("Fetched ready tickets", { count: tickets.length });
+      return tickets;
     },
 
     async fetchTicketsByStatus(statusName: string): Promise<Ticket[]> {
+      logger.debug("Fetching tickets by status", { projectId: project_id, status: statusName });
       const states = await getStates();
       const target = states.find((s) => s.name === statusName);
       if (!target) return [];
@@ -155,15 +168,18 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
       const res = await planeFetch(`/projects/${project_id}/issues/?${params}`);
       const data = (await res.json()) as PlaneIssuesResponse;
 
-      return data.results.map((issue) => ({
+      const tickets = data.results.map((issue) => ({
         id: issue.id,
         identifier: makeIdentifier(issue, identifier),
         title: issue.name,
         description: issue.description_html ?? undefined,
       }));
+      logger.debug("Fetched tickets by status", { status: statusName, count: tickets.length });
+      return tickets;
     },
 
     async transitionStatus(ticketId: string, statusName: string): Promise<void> {
+      logger.debug("Transitioning ticket status", { ticketId, to: statusName });
       const states = await getStates();
       const target = states.find((s) => s.name === statusName);
       if (!target) {
@@ -174,9 +190,11 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
         method: "PATCH",
         body: JSON.stringify({ state: target.id }),
       });
+      logger.debug("Ticket status transitioned", { ticketId, to: statusName });
     },
 
     async postComment(ticketId: string, body: string): Promise<void> {
+      logger.debug("Posting comment", { ticketId, bodyLength: body.length });
       await planeFetch(`/projects/${project_id}/issues/${ticketId}/comments/`, {
         method: "POST",
         body: JSON.stringify({ comment_html: body }),
@@ -184,6 +202,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
     },
 
     async fetchComments(ticketId: string, since?: string): Promise<TicketComment[]> {
+      logger.debug("Fetching comments", { ticketId, since });
       const res = await planeFetch(`/projects/${project_id}/issues/${ticketId}/comments/`);
       const data = (await res.json()) as PlaneCommentsResponse;
 
@@ -199,6 +218,7 @@ export function createPlaneProvider(config: PlaneProviderConfig): TicketProvider
         results = results.filter((c) => new Date(c.createdAt) > sinceDate);
       }
 
+      logger.debug("Fetched comments", { ticketId, total: data.results.length, filtered: results.length });
       return results;
     },
   };

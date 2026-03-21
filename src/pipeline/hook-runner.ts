@@ -1,5 +1,5 @@
-import type { Logger } from "../logger.ts";
 import { interpolate, type TaskVars } from "./interpolate.ts";
+import { log } from "../logger.ts";
 
 export type HookResult = {
   success: boolean;
@@ -12,11 +12,10 @@ export async function runHooks(
   commands: string[],
   cwd: string,
   vars: TaskVars,
-  logger: Logger
 ): Promise<HookResult> {
   for (const raw of commands) {
     const command = interpolate(raw, vars);
-    logger.info("Running hook", { command });
+    log.info("Running hook", { command });
 
     const proc = Bun.spawn(["sh", "-c", command], {
       cwd,
@@ -30,11 +29,11 @@ export async function runHooks(
       new Response(proc.stderr).text(),
     ]);
 
-    logger.debug("Hook output", { command, stdout, stderr });
+    log.debug("Hook output", { command, stdout, stderr });
 
     if (exitCode !== 0) {
       const output = (stderr || stdout).trim();
-      logger.error("Hook failed", { command, exitCode, output });
+      log.error("Hook failed", { command, exitCode, output });
       return { success: false, failedCommand: command, exitCode, output };
     }
   }

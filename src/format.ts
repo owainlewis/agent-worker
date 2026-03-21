@@ -60,16 +60,25 @@ export function formatConsoleLine(
   const colorFn = levelColors[level] ?? colors.gray;
   const badge = colorFn(level.toUpperCase().padEnd(5));
 
+  // Component tag (e.g. [provider:linear])
+  const component = ctx?.component as string | undefined;
+  const componentTag = component ? `${colors.cyan(`[${component}]`)} ` : "";
+
+  // Exclude component from the context key=value pairs
+  const ctxWithoutComponent = ctx ? Object.fromEntries(
+    Object.entries(ctx).filter(([k]) => k !== "component")
+  ) : undefined;
+
   let ctxStr = "";
-  if (ctx && Object.keys(ctx).length > 0) {
+  if (ctxWithoutComponent && Object.keys(ctxWithoutComponent).length > 0) {
     ctxStr =
       " " +
       colors.dim(
-        Object.entries(ctx)
+        Object.entries(ctxWithoutComponent)
           .map(([k, v]) => `${k}=${v}`)
           .join(" ")
       );
   }
 
-  return `${colors.dim(time)}  ${badge}  ${msg}${ctxStr}`;
+  return `${colors.dim(time)}  ${badge}  ${componentTag}${msg}${ctxStr}`;
 }

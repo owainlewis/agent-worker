@@ -1,13 +1,13 @@
-import type { Logger } from "../logger.ts";
 import type { CodeExecutor, ExecutorResult } from "./executor.ts";
 import { streamToLines, spawnOrError } from "./executor.ts";
+import { log } from "../logger.ts";
 
 export function createOpencodeExecutor(): CodeExecutor {
   return {
     name: "opencode",
     needsWorktree: true,
-    async run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult> {
-      logger.info("opencode started", { timeoutMs });
+    async run(prompt: string, cwd: string, timeoutMs: number): Promise<ExecutorResult> {
+      log.info("opencode started", { timeoutMs });
 
       const spawned = spawnOrError(
         ["opencode", "-p", prompt],
@@ -26,10 +26,10 @@ export function createOpencodeExecutor(): CodeExecutor {
 
       const [stdout, stderr] = await Promise.all([
         streamToLines(proc.stdout as ReadableStream<Uint8Array>, (line) => {
-          logger.info("opencode", { stream: "stdout", line });
+          log.info("opencode", { stream: "stdout", line });
         }),
         streamToLines(proc.stderr as ReadableStream<Uint8Array>, (line) => {
-          logger.info("opencode", { stream: "stderr", line });
+          log.info("opencode", { stream: "stderr", line });
         }),
       ]);
 
@@ -39,14 +39,14 @@ export function createOpencodeExecutor(): CodeExecutor {
       const output = (stdout + "\n" + stderr).trim();
 
       if (timedOut) {
-        logger.error("opencode timed out", { timeoutMs });
+        log.error("opencode timed out", { timeoutMs });
         return { success: false, output, timedOut: true, exitCode: null };
       }
 
       if (exitCode !== 0) {
-        logger.error("opencode failed", { exitCode });
+        log.error("opencode failed", { exitCode });
       } else {
-        logger.info("opencode completed successfully");
+        log.info("opencode completed successfully");
       }
 
       return { success: exitCode === 0, output, timedOut: false, exitCode };

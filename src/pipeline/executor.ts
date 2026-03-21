@@ -1,4 +1,3 @@
-import type { Logger } from "../logger.ts";
 import { createClaudeExecutor } from "./claude-executor.ts";
 import { createCodexExecutor } from "./codex-executor.ts";
 import { createOpencodeExecutor } from "./opencode-executor.ts";
@@ -39,7 +38,7 @@ export interface CodeExecutor {
   name: string;
   /** Whether the pipeline should create an isolated git worktree for this executor. */
   needsWorktree: boolean;
-  run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult>;
+  run(prompt: string, cwd: string, timeoutMs: number): Promise<ExecutorResult>;
 }
 
 export async function streamToLines(

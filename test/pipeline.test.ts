@@ -4,16 +4,13 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { execSync } from "child_process";
 import { executePipeline } from "../src/pipeline/pipeline.ts";
+import { initLogger } from "../src/logger.ts";
 import type { CodeExecutor } from "../src/pipeline/executor.ts";
-import type { Logger } from "../src/logger.ts";
 import type { Ticket } from "../src/providers/types.ts";
 
-const noopLogger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
+beforeEach(() => {
+  initLogger({ level: "error" });
+});
 
 const ticket: Ticket = {
   id: "uuid-1",
@@ -78,7 +75,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: mockExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     expect(result.success).toBe(false);
     expect(result.stage).toBe("pre-hook");
@@ -92,7 +88,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: mockExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     expect(result.success).toBe(false);
     expect(result.stage).toBe("pre-hook");
@@ -107,7 +102,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: mockExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     expect(result.success).toBe(true);
     expect(result.output).toBe("mock output");
@@ -121,7 +115,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: failingExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     expect(result.success).toBe(false);
     expect(result.stage).toBe("executor");
@@ -135,7 +128,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: failingExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     expect(result.success).toBe(false);
     expect(result.stage).toBe("executor");
@@ -149,7 +141,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: mockExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     // Worktree should be cleaned up — only the main working tree remains
     const output = execSync("git worktree list", { cwd: repoDir }).toString();
@@ -165,7 +156,6 @@ describe("executePipeline", () => {
       repoCwd: repoDir,
       executor: mockExecutor(),
       timeoutMs: 5000,
-      logger: noopLogger,
     });
     const output = execSync("git worktree list", { cwd: repoDir }).toString();
     const lines = output.trim().split("\n");

@@ -1,14 +1,7 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach, spyOn, type Mock } from "bun:test";
 import { createPoller } from "../src/poller.ts";
+import { initLogger } from "../src/logger.ts";
 import type { Ticket, TicketProvider } from "../src/providers/types.ts";
-import type { Logger } from "../src/logger.ts";
-
-const noopLogger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
 
 const testTicket: Ticket = {
   id: "uuid-1",
@@ -16,6 +9,17 @@ const testTicket: Ticket = {
   title: "Test",
   description: undefined,
 };
+
+let logSpy: Mock<typeof console.log>;
+
+beforeEach(() => {
+  logSpy = spyOn(console, "log").mockImplementation(() => {});
+  initLogger({ level: "error" });
+});
+
+afterEach(() => {
+  logSpy.mockRestore();
+});
 
 describe("createPoller", () => {
   test("calls onTicket when tickets are found", async () => {
@@ -37,7 +41,6 @@ describe("createPoller", () => {
     const poller = createPoller({
       provider,
       intervalMs: 10,
-      logger: noopLogger,
       onTicket: async (t) => {
         received.push(t);
         poller.stop();
@@ -67,7 +70,6 @@ describe("createPoller", () => {
     const poller = createPoller({
       provider,
       intervalMs: 10,
-      logger: noopLogger,
       onTicket: async () => {},
     });
 
@@ -94,7 +96,6 @@ describe("createPoller", () => {
     const poller = createPoller({
       provider,
       intervalMs: 10,
-      logger: noopLogger,
       onTicket: async () => {},
     });
 
@@ -103,13 +104,8 @@ describe("createPoller", () => {
   });
 
   test("logs poll count and uptime on each cycle", async () => {
-    const infoMessages: string[] = [];
-    const capturingLogger: Logger = {
-      debug: () => {},
-      info: (msg: string) => { infoMessages.push(msg); },
-      warn: () => {},
-      error: () => {},
-    };
+    // Re-init at info level so poll messages are logged
+    initLogger({ level: "info" });
     let pollCount = 0;
 
     const provider: TicketProvider = {
@@ -127,11 +123,21 @@ describe("createPoller", () => {
     const poller = createPoller({
       provider,
       intervalMs: 10,
-      logger: capturingLogger,
       onTicket: async () => {},
     });
 
     await poller.start();
+
+    // Logger outputs are either human-readable (TTY) or JSON (non-TTY)
+    const infoMessages = logSpy.mock.calls.map((c) => {
+      const raw = c[0] as string;
+      // Try to extract message from JSON output
+      try {
+        return JSON.parse(raw).message;
+      } catch {
+        return raw;
+      }
+    });
 
     expect(infoMessages.length).toBeGreaterThanOrEqual(2);
     expect(infoMessages[0]).toMatch(/^Poll #1 \(uptime: \d+s\) — checking for tickets\.\.\.$/);
@@ -155,7 +161,6 @@ describe("createPoller", () => {
     const poller = createPoller({
       provider,
       intervalMs: 10,
-      logger: noopLogger,
       onTicket: async () => {},
     });
 

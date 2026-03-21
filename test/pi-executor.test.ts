@@ -1,13 +1,5 @@
 import { describe, test, expect } from "bun:test";
 import { createPiExecutor } from "../src/pipeline/pi-executor.ts";
-import type { Logger } from "../src/logger.ts";
-
-const noopLogger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
 
 describe("createPiExecutor", () => {
   test("returns a CodeExecutor with name 'pi'", () => {
@@ -22,7 +14,7 @@ describe("createPiExecutor", () => {
 
   test("returns correct shape on failure (pi not installed)", async () => {
     const executor = createPiExecutor();
-    const result = await executor.run("test prompt", "/tmp", 2000, noopLogger);
+    const result = await executor.run("test prompt", "/tmp", 2000);
     expect(result).toHaveProperty("success");
     expect(result).toHaveProperty("output");
     expect(result).toHaveProperty("timedOut");

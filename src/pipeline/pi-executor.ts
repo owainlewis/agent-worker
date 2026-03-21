@@ -1,13 +1,13 @@
-import type { Logger } from "../logger.ts";
 import type { CodeExecutor, ExecutorResult } from "./executor.ts";
 import { streamToLines, spawnOrError } from "./executor.ts";
+import { log } from "../logger.ts";
 
 export function createPiExecutor(): CodeExecutor {
   return {
     name: "pi",
     needsWorktree: true,
-    async run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult> {
-      logger.info("pi started", { timeoutMs });
+    async run(prompt: string, cwd: string, timeoutMs: number): Promise<ExecutorResult> {
+      log.info("pi started", { timeoutMs });
 
       const spawned = spawnOrError(
         ["pi", "-p", prompt, "--no-session"],
@@ -26,10 +26,10 @@ export function createPiExecutor(): CodeExecutor {
 
       const [stdout, stderr] = await Promise.all([
         streamToLines(proc.stdout as ReadableStream<Uint8Array>, (line) => {
-          logger.info("pi", { stream: "stdout", line });
+          log.info("pi", { stream: "stdout", line });
         }),
         streamToLines(proc.stderr as ReadableStream<Uint8Array>, (line) => {
-          logger.info("pi", { stream: "stderr", line });
+          log.info("pi", { stream: "stderr", line });
         }),
       ]);
 
@@ -39,14 +39,14 @@ export function createPiExecutor(): CodeExecutor {
       const output = (stdout + "\n" + stderr).trim();
 
       if (timedOut) {
-        logger.error("pi timed out", { timeoutMs });
+        log.error("pi timed out", { timeoutMs });
         return { success: false, output, timedOut: true, exitCode: null };
       }
 
       if (exitCode !== 0) {
-        logger.error("pi failed", { exitCode });
+        log.error("pi failed", { exitCode });
       } else {
-        logger.info("pi completed successfully");
+        log.info("pi completed successfully");
       }
 
       return { success: exitCode === 0, output, timedOut: false, exitCode };

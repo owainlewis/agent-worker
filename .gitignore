@@ -38,5 +38,8 @@ agent-worker.yaml
 # Finder (MacOS) folder config
 .DS_Store
 
+# pi agent local state
+.pi
+
 # Place for credentials to be set that agent can run for interactive terminal testing
 .credentials.sh

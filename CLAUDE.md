@@ -14,10 +14,11 @@ TypeScript CLI built with Bun. Polls ticket providers (Linear, Jira, Plane) and 
 When solving a ticket:
 
 1. Write the code to solve the ticket
-2. Run `bun test` and fix any failures
-3. Review your changes for bugs, security issues, and code quality — use CodeRabbit if available
-4. Fix any issues found in the review
-5. Run `bun test` again to confirm fixes didn't break anything
+2. Run `bun typecheck` and fix any type errors
+3. Run `bun test` and fix any failures
+4. Review your changes for bugs, security issues, and code quality — use CodeRabbit if available
+5. Fix any issues found in the review
+6. Run `bun typecheck && bun test` again to confirm fixes didn't break anything
 
 ## Ticket Lifecycle
 
@@ -92,12 +93,12 @@ Orchestration logic that coordinates providers, executors, and SCM.
 Cross-cutting concerns with no domain logic.
 
 - `config.ts` — YAML config loading and Zod validation. Config sections: `provider`, `repo`, `hooks`, `executor`, `log`, `scm`, `feedback`. Status schema includes: `ready`, `in_progress`, `code_review`, `verification`, `failed`.
-- `logger.ts` — structured logging (TTY-aware, optional file output)
-- `format.ts` — terminal colors and splash banner
+- `logger.ts` — module-level singleton logger. `initLogger()` called once at startup from `index.ts`; all other modules import the `log` singleton. Supports child loggers via `log.child(component)` for component tagging (e.g., `[provider:linear]`). Exports `time()` utility for measuring async operation durations. `createLogger()` is available for tests that need an isolated logger. Falls back to a no-op logger if accessed before `initLogger()` is called.
+- `format.ts` — terminal colors, splash banner, and console line formatting (including component tags)
 
 ### Entry Point (`src/index.ts`)
 
-Wires all components together. Parses CLI args (`--config <path>`, `--version`), loads config, creates provider/poller/logger/SCM provider/PR tracker/feedback poller, handles `SIGINT` and `SIGTERM`, starts both the main poller and feedback poller concurrently. Seeds the PR tracker when a ticket reaches code_review. This is the only file that should know about every other module.
+Wires all components together. Parses CLI args (`--config <path>`, `--debug`, `--version`), loads config, calls `initLogger()`, creates provider/poller/SCM provider/PR tracker/feedback poller, handles `SIGINT` and `SIGTERM`, starts both the main poller and feedback poller concurrently. Seeds the PR tracker when a ticket reaches code_review. This is the only file that should know about every other module.
 
 ## Config Reference
 
@@ -109,7 +110,7 @@ Key config sections validated by Zod in `src/config.ts`:
 | `repo` | Yes | Local repo path (`path`) |
 | `hooks` | No | Pre/post shell commands (`pre[]`, `post[]`) |
 | `executor` | No | Executor type, timeout, retries. Defaults: claude, 300s, 0 retries |
-| `log` | No | Log level and optional file path |
+| `log` | No | Log level, optional file path, and `redact` array for sensitive values |
 | `scm` | Yes | SCM provider config (`type: "github" \| "bitbucket_server"` + provider-specific fields) |
 | `feedback` | No | Feedback processing config. `comment_prefix` (default `"/agent"`), `poll_interval_seconds` (default `120`) |
 
@@ -122,3 +123,54 @@ Key config sections validated by Zod in `src/config.ts`:
 - SCM providers implement the `ScmProvider` interface (`src/scm/types.ts`)
 - Hooks are shell commands run via `src/pipeline/hook-runner.ts`
 - Tests live in `test/` mirroring `src/` structure
+
+## Debug Mode
+
+Pass `--debug` to enable debug-level logging. This overrides any `log.level` set in the config file.
+
+```bash
+agent-worker --config config.yaml --debug
+```
+
+In debug mode, the following additional output is produced:
+
+- **Provider API calls** — every request/response to Linear, Jira, or Plane is logged with status codes and durations
+- **SCM API calls** — every request/response to GitHub or Bitbucket Server is logged with status codes and durations
+- **Rate limit retries** — backoff attempts during HTTP 429 errors
+- **Data counts** — number of tickets fetched, comments retrieved, etc.
+- **State cache** — team state and project identifier cache hits/misses
+
+Debug output includes component tags (e.g., `[provider:linear]`, `[scm:github]`) for easy filtering in tmux or log files.
+
+### Config-based debug logging
+
+Alternatively, set `log.level: debug` in the YAML config:
+
+```yaml
+log:
+  level: debug
+  file: /tmp/agent-worker-debug.log
+  redact:
+    - lin_api_secret_key_12345
+```
+
+### Child loggers
+
+Modules create child loggers for component-scoped output:
+
+```typescript
+import { log } from "../logger.ts";
+const logger = log.child("linear");
+logger.debug("Fetching tickets", { projectId: "abc" });
+// Output: 14:23:01  DEBUG  [linear] Fetching tickets projectId=abc
+```
+
+### Timing utility
+
+Use `time()` to measure async operation durations:
+
+```typescript
+import { time } from "../logger.ts";
+const result = await time("fetchTickets", () => provider.fetchReadyTickets());
+// Output: 14:23:01  DEBUG  fetchTickets completed durationMs=342
+```

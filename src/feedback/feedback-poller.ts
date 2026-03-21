@@ -1,20 +1,18 @@
-import type { Logger } from "../logger.ts";
 import type { Config } from "../config.ts";
 import type { TicketProvider } from "../providers/types.ts";
 import type { ScmProvider } from "../scm/types.ts";
 import type { PRTracker } from "./tracking.ts";
-import { createPRTracker } from "./tracking.ts";
 import { findActionableComments, type FeedbackEvent } from "./comment-filter.ts";
 import { processFeedback } from "./feedback-handler.ts";
+import { log } from "../logger.ts";
 
 export function createFeedbackPoller(options: {
   provider: TicketProvider;
   scm: ScmProvider;
   prTracker: PRTracker;
   config: Config;
-  logger: Logger;
 }): { start: () => Promise<void>; stop: () => void } {
-  const { provider, scm, prTracker, config, logger } = options;
+  const { provider, scm, prTracker, config } = options;
 
   const codeReviewStatus = config.provider.statuses.code_review;
   const verificationStatus = config.provider.statuses.verification;
@@ -57,7 +55,6 @@ export function createFeedbackPoller(options: {
       comment,
       pr,
       config,
-      logger,
       provider,
       prTracker,
     });
@@ -66,7 +63,7 @@ export function createFeedbackPoller(options: {
   return {
     async start() {
       isRunning = true;
-      logger.info("Feedback poller started", {
+      log.info("Feedback poller started", {
         pollInterval: config.feedback.poll_interval_seconds,
         commentPrefix: prefix,
       });
@@ -91,13 +88,13 @@ export function createFeedbackPoller(options: {
                     branch,
                     lastCommentCheck: new Date().toISOString(),
                   });
-                  logger.info("Tracking PR for ticket", {
+                  log.info("Tracking PR for ticket", {
                     ticketId: ticket.identifier,
                     prNumber: pr.number,
                   });
                 }
               } catch (err) {
-                logger.debug("Failed to find PR for ticket", {
+                log.debug("Failed to find PR for ticket", {
                   ticketId: ticket.identifier,
                   branch,
                   error: err instanceof Error ? err.message : String(err),
@@ -116,7 +113,7 @@ export function createFeedbackPoller(options: {
                   "",
                   `PR #${tracked.prNumber} has been merged.`,
                 ].join("\n"));
-                logger.info("PR merged, ticket moved to verification", {
+                log.info("PR merged, ticket moved to verification", {
                   ticketId: ticket.identifier,
                   prNumber: tracked.prNumber,
                 });
@@ -124,7 +121,7 @@ export function createFeedbackPoller(options: {
                 continue;
               }
             } catch (err) {
-              logger.debug("Failed to check PR merge status", {
+              log.debug("Failed to check PR merge status", {
                 ticketId: ticket.identifier,
                 prNumber: tracked.prNumber,
                 error: err instanceof Error ? err.message : String(err),
@@ -139,7 +136,7 @@ export function createFeedbackPoller(options: {
                 findActionableComments(prComments, prefix).map((c) => ({ ...c, source: "pr" as const }))
               );
             } catch (err) {
-              logger.debug("Failed to fetch PR comments", {
+              log.debug("Failed to fetch PR comments", {
                 ticketId: ticket.identifier,
                 prNumber: tracked.prNumber,
                 error: err instanceof Error ? err.message : String(err),
@@ -153,14 +150,14 @@ export function createFeedbackPoller(options: {
                 findActionableComments(ticketComments, prefix).map((c) => ({ ...c, source: "ticket" as const }))
               );
             } catch (err) {
-              logger.debug("Failed to fetch ticket comments", {
+              log.debug("Failed to fetch ticket comments", {
                 ticketId: ticket.identifier,
                 error: err instanceof Error ? err.message : String(err),
               });
             }
 
             if (actionableComments.length > 0) {
-              logger.info("Actionable feedback found", {
+              log.info("Actionable feedback found", {
                 ticketId: ticket.identifier,
                 count: actionableComments.length,
               });
@@ -176,7 +173,7 @@ export function createFeedbackPoller(options: {
             }
           }
         } catch (err) {
-          logger.error("Feedback poll cycle failed", {
+          log.error("Feedback poll cycle failed", {
             error: err instanceof Error ? err.message : String(err),
           });
         }
@@ -185,7 +182,7 @@ export function createFeedbackPoller(options: {
         await interruptibleSleep(intervalMs);
       }
 
-      logger.info("Feedback poller stopped");
+      log.info("Feedback poller stopped");
     },
 
     stop() {

@@ -12,7 +12,8 @@
     "build:darwin-arm64": "bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile dist/agent-worker-darwin-arm64",
     "build:darwin-x64": "bun build src/index.ts --compile --target=bun-darwin-x64 --outfile dist/agent-worker-darwin-x64",
     "build:all": "bun run build:linux-x64 && bun run build:darwin-arm64 && bun run build:darwin-x64",
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"

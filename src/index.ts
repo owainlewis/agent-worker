@@ -1,5 +1,5 @@
 import { loadConfig } from "./config.ts";
-import { createLogger } from "./logger.ts";
+import { initLogger, log, type LogLevel } from "./logger.ts";
 import { printSplash } from "./format.ts";
 import { createProvider } from "./providers/index.ts";
 import { createPoller } from "./poller.ts";
@@ -17,11 +17,12 @@ function main() {
 
   const configIndex = process.argv.indexOf("--config");
   if (configIndex === -1 || !process.argv[configIndex + 1]) {
-    console.error("Usage: agent-worker --config <path>");
+    console.error("Usage: agent-worker --config <path> [--debug]");
     process.exit(1);
   }
 
   const configPath = process.argv[configIndex + 1]!;
+  const debugFlag = process.argv.includes("--debug");
 
   let config;
   try {
@@ -34,11 +35,15 @@ function main() {
     process.exit(1);
   }
 
-  printSplash(`${config.provider.type} → ${config.executor.type}`);
+  // --debug flag overrides config log level to debug
+  const logLevel: LogLevel = debugFlag ? "debug" : config.log.level;
 
-  const logger = createLogger({
-    level: config.log.level,
+  printSplash(`${config.provider.type} → ${config.executor.type}${debugFlag ? " (debug)" : ""}`);
+
+  initLogger({
+    level: logLevel,
     filePath: config.log.file,
+    redact: config.log.redact.length > 0 ? config.log.redact : undefined,
   });
 
   const provider = createProvider(config.provider);
@@ -48,9 +53,8 @@ function main() {
   const poller = createPoller({
     provider,
     intervalMs: config.provider.poll_interval_seconds * 1000,
-    logger,
     onTicket: async (ticket) => {
-      const result = await processTicket({ ticket, provider, config, logger });
+      const result = await processTicket({ ticket, provider, config });
 
       if (result.outcome === "code_review") {
         prTracker.track({
@@ -69,22 +73,21 @@ function main() {
     scm: scmProvider,
     prTracker,
     config,
-    logger,
   });
 
-  logger.info("Agent Worker started", {
+  log.info("Agent Worker started", {
     provider: config.provider.type,
     pollInterval: config.provider.poll_interval_seconds,
     executor: config.executor.type,
   });
 
   process.on("SIGINT", () => {
-    logger.info("Shutting down", { signal: "SIGINT" });
+    log.info("Shutting down", { signal: "SIGINT" });
     poller.stop();
     feedbackPoller.stop();
   });
   process.on("SIGTERM", () => {
-    logger.info("Shutting down", { signal: "SIGTERM" });
+    log.info("Shutting down", { signal: "SIGTERM" });
     poller.stop();
     feedbackPoller.stop();
   });
@@ -92,7 +95,7 @@ function main() {
   poller.start().then(() => {
     process.exit(0);
   }).catch((err) => {
-    logger.error("Fatal error", {
+    log.error("Fatal error", {
       error: err instanceof Error ? err.message : String(err),
     });
     process.exit(1);

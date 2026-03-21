@@ -1,13 +1,13 @@
-import type { Logger } from "../logger.ts";
 import type { CodeExecutor, ExecutorResult } from "./executor.ts";
 import { streamToLines, spawnOrError } from "./executor.ts";
+import { log } from "../logger.ts";
 
 export function createClaudeExecutor(): CodeExecutor {
   return {
     name: "claude",
     needsWorktree: true,
-    async run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult> {
-      logger.info("Claude Code started", { timeoutMs });
+    async run(prompt: string, cwd: string, timeoutMs: number): Promise<ExecutorResult> {
+      log.info("Claude Code started", { timeoutMs });
 
       const spawned = spawnOrError(
         ["claude", "--print", "--dangerously-skip-permissions", "-p", prompt],
@@ -26,10 +26,10 @@ export function createClaudeExecutor(): CodeExecutor {
 
       const [stdout, stderr] = await Promise.all([
         streamToLines(proc.stdout as ReadableStream<Uint8Array>, (line) => {
-          logger.info("claude", { stream: "stdout", line });
+          log.info("claude", { stream: "stdout", line });
         }),
         streamToLines(proc.stderr as ReadableStream<Uint8Array>, (line) => {
-          logger.info("claude", { stream: "stderr", line });
+          log.info("claude", { stream: "stderr", line });
         }),
       ]);
 
@@ -39,14 +39,14 @@ export function createClaudeExecutor(): CodeExecutor {
       const output = (stdout + "\n" + stderr).trim();
 
       if (timedOut) {
-        logger.error("Claude Code timed out", { timeoutMs });
+        log.error("Claude Code timed out", { timeoutMs });
         return { success: false, output, timedOut: true, exitCode: null };
       }
 
       if (exitCode !== 0) {
-        logger.error("Claude Code failed", { exitCode });
+        log.error("Claude Code failed", { exitCode });
       } else {
-        logger.info("Claude Code completed successfully");
+        log.info("Claude Code completed successfully");
       }
 
       return { success: exitCode === 0, output, timedOut: false, exitCode };

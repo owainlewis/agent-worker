@@ -1,7 +1,9 @@
 import type { ScmProvider, PullRequest, PRComment } from "./types.ts";
 import type { BitbucketServerScmConfig } from "../config.ts";
+import { log } from "../logger.ts";
 
 export function createBitbucketServerProvider(config: BitbucketServerScmConfig): ScmProvider {
+  const logger = log.child("bitbucket");
   const token = process.env.BITBUCKET_TOKEN;
   if (!token) {
     throw new Error("BITBUCKET_TOKEN environment variable is required for BitBucket Server SCM provider");
@@ -12,12 +14,15 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
 
   async function bbFetch(path: string): Promise<Response> {
     const url = `${baseUrl}/rest/api/1.0${path}`;
+    logger.debug("Bitbucket API request", { path });
+    const start = Date.now();
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     });
+    logger.debug("Bitbucket API response", { path, status: res.status, durationMs: Date.now() - start });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`BitBucket Server API error ${res.status}: ${text}`);
@@ -27,15 +32,20 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
 
   return {
     async findPullRequest(branch: string): Promise<PullRequest | null> {
+      logger.debug("Finding pull request", { branch });
       const res = await bbFetch(
         `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/pull-requests?at=refs/heads/${encodeURIComponent(branch)}&state=OPEN&limit=1`
       );
       const data = (await res.json()) as Record<string, unknown>;
       const values = data.values as Record<string, unknown>[] | undefined;
 
-      if (!Array.isArray(values) || values.length === 0) return null;
+      if (!Array.isArray(values) || values.length === 0) {
+        logger.debug("No pull request found", { branch });
+        return null;
+      }
 
       const pr = values[0]!;
+      logger.debug("Found pull request", { branch, prNumber: pr.id });
       return {
         number: pr.id as number,
         url: `${baseUrl}/projects/${project}/repos/${repo}/pull-requests/${pr.id}`,
@@ -45,6 +55,7 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
     },
 
     async getPRComments(prNumber: number, since?: string): Promise<PRComment[]> {
+      logger.debug("Fetching PR comments", { prNumber, since });
       const res = await bbFetch(
         `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/pull-requests/${prNumber}/activities?limit=100`
       );
@@ -53,7 +64,7 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
 
       if (!Array.isArray(activities)) return [];
 
-      return activities
+      const results = activities
         .filter((a) => a.action === "COMMENTED")
         .filter((a) => {
           if (!since) return true;
@@ -70,16 +81,22 @@ export function createBitbucketServerProvider(config: BitbucketServerScmConfig):
             createdAt: a.createdDate as string,
           };
         });
+      logger.debug("Fetched PR comments", { prNumber, count: results.length });
+      return results;
     },
 
     async isPRMerged(prNumber: number): Promise<boolean> {
+      logger.debug("Checking if PR is merged", { prNumber });
       try {
         const res = await bbFetch(
           `/projects/${encodeURIComponent(project)}/repos/${encodeURIComponent(repo)}/pull-requests/${prNumber}`
         );
         const data = (await res.json()) as Record<string, unknown>;
-        return data.state === "MERGED";
+        const merged = data.state === "MERGED";
+        logger.debug("PR merge check", { prNumber, merged });
+        return merged;
       } catch {
+        logger.debug("PR merge check failed", { prNumber, merged: false });
         return false;
       }
     },

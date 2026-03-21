@@ -1,13 +1,5 @@
 import { describe, test, expect } from "bun:test";
 import { createOpencodeExecutor } from "../src/pipeline/opencode-executor.ts";
-import type { Logger } from "../src/logger.ts";
-
-const noopLogger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
 
 describe("createOpencodeExecutor", () => {
   test("returns a CodeExecutor with name 'opencode'", () => {
@@ -22,7 +14,7 @@ describe("createOpencodeExecutor", () => {
 
   test("returns correct shape on failure (opencode not installed)", async () => {
     const executor = createOpencodeExecutor();
-    const result = await executor.run("test prompt", "/tmp", 2000, noopLogger);
+    const result = await executor.run("test prompt", "/tmp", 2000);
     expect(result).toHaveProperty("success");
     expect(result).toHaveProperty("output");
     expect(result).toHaveProperty("timedOut");

@@ -1,16 +1,13 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeEach } from "bun:test";
 import { processTicket } from "../src/scheduler.ts";
+import { initLogger } from "../src/logger.ts";
 import type { Ticket, TicketProvider, TicketComment } from "../src/providers/types.ts";
 import type { CodeExecutor } from "../src/pipeline/executor.ts";
 import type { Config } from "../src/config.ts";
-import type { Logger } from "../src/logger.ts";
 
-const noopLogger: Logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-};
+beforeEach(() => {
+  initLogger({ level: "error" });
+});
 
 const ticket: Ticket = {
   id: "uuid-1",
@@ -36,7 +33,7 @@ function makeConfig(overrides?: Partial<Config>): Config {
     repo: { path: "/tmp" },
     hooks: { pre: [], post: [] },
     executor: { type: "claude", timeout_seconds: 5, retries: 0 },
-    log: { level: "info" },
+    log: { level: "info", redact: [] },
     scm: { type: "github", owner: "myorg", repo: "myrepo" },
     feedback: { comment_prefix: "/agent", poll_interval_seconds: 120 },
     ...overrides,
@@ -94,7 +91,6 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig(),
-      logger: noopLogger,
       executor: mockExecutor({ success: true }),
     });
 
@@ -108,7 +104,6 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig({ hooks: { pre: ["exit 1"], post: [] } }),
-      logger: noopLogger,
       executor: mockExecutor({ success: true }),
     });
 
@@ -126,7 +121,6 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig(),
-      logger: noopLogger,
       executor: mockExecutor({ success: true, output: "all done" }),
     });
 
@@ -159,7 +153,6 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig(),
-      logger: noopLogger,
       executor: countingExecutor,
     });
 
@@ -186,7 +179,6 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig({ executor: { type: "claude", timeout_seconds: 5, retries: 1 } }),
-      logger: noopLogger,
       executor: flakyExecutor,
     });
 
@@ -212,7 +204,6 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig({ executor: { type: "claude", timeout_seconds: 5, retries: 2 } }),
-      logger: noopLogger,
       executor: alwaysFailingExecutor,
     });
 

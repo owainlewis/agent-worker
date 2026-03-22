@@ -1,0 +1,50 @@
+provider:
+  type: plane
+  base_url: "https://plane.local.tylerangelier.com"
+  workspace_slug: "homelab"
+  project_id: "8e39dfbf-a4ff-45da-b6e9-4708450f49c6"
+  poll_interval_seconds: 60
+  query: "state:Todo"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    code_review: "Code Review"
+    verification: "Done"
+    done: "Done"
+    failed: "Cancelled"
+
+repo:
+  path: "/Users/trangelier/development/homelab/agent-worker"
+
+scm:
+  type: github
+  owner: "TylerAngelier"
+  repo: "agent-worker"
+
+executor:
+  type: container
+  image: pi-coder
+  command: ["pi", "-p", "--no-session"]
+  network: host
+  env:
+    ZAI_API_KEY: "${ZAI_API_KEY}"
+  mounts:
+    - source: "~/.pi/agent"
+      dest: "/root/.pi/agent"
+  timeout_seconds: 3600
+  retries: 0
+
+feedback:
+  enabled: true
+  comment_prefix: "/agent"
+  poll_interval_seconds: 120
+
+hooks:
+  post:
+    - "git add -A"
+    - "git diff --cached --quiet || git commit -m '{id}: {raw_title}'"
+    - "git push --force-with-lease origin {branch}"
+    - "gh pr list --head {branch} --json number -q '.[0].number' | grep -q . || gh pr create --title '{id}: {raw_title}' --body 'Fixes {id}. Implemented by Agent Worker.' --base main"
+
+log:
+  level: info

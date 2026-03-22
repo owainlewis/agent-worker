@@ -68,7 +68,7 @@ export async function processTicket(options: {
     return { outcome: "failed" };
   }
 
-  const executor = options.executor ?? createExecutor(config.executor.type);
+  const executor = options.executor ?? createExecutor(config.executor);
 
   // Run pipeline with retries
   let lastResult: Awaited<ReturnType<typeof executePipeline>> | undefined;

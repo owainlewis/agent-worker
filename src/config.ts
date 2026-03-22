@@ -70,11 +70,42 @@ const HooksSchema = z.object({
   post: z.array(z.string()).default([]),
 }).default({ pre: [], post: [] });
 
-const ExecutorSchema = z.object({
-  type: z.enum(["claude", "codex", "opencode", "pi"]).default("claude"),
+const MountSchema = z.object({
+  source: z.string(),
+  dest: z.string(),
+});
+
+export type MountConfig = z.infer<typeof MountSchema>;
+
+const NativeExecutorSchema = z.object({
+  type: z.enum(["claude", "codex", "opencode", "pi"]),
+  /** When true, executors add their respective auto-approve flags (claude: --dangerously-skip-permissions, codex: --yolo). Ignored by opencode/pi (always auto). Defaults to true for backward compatibility. */
+  dangerously_skip_permissions: z.boolean().default(true),
   timeout_seconds: z.number().positive().default(300),
   retries: z.number().int().min(0).max(3).default(0),
-}).default({ type: "claude", timeout_seconds: 300, retries: 0 });
+});
+
+const ContainerExecutorSchema = z.object({
+  type: z.literal("container"),
+  image: z.string(),
+  command: z.array(z.string()),
+  /** Executor-specific auto-approve flag to inject before the prompt (e.g. "--dangerously-skip-permissions" for claude, "--yolo" for codex). Not needed for opencode/pi. */
+  permissions_flag: z.string().optional(),
+  memory: z.string().optional(),
+  cpus: z.string().optional(),
+  network: z.string().default("none"),
+  env: z.record(z.string(), z.string()).default({}),
+  mounts: z.array(MountSchema).default([]),
+  timeout_seconds: z.number().positive().default(300),
+  retries: z.number().int().min(0).max(3).default(0),
+});
+
+export type ContainerExecutorConfig = z.infer<typeof ContainerExecutorSchema>;
+
+const ExecutorSchema = z.discriminatedUnion("type", [
+  NativeExecutorSchema,
+  ContainerExecutorSchema,
+]).default({ type: "claude", dangerously_skip_permissions: true, timeout_seconds: 300, retries: 0 });
 
 const LogSchema = z.object({
   file: z.string().optional(),

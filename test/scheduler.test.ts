@@ -32,7 +32,7 @@ function makeConfig(overrides?: Partial<Config>): Config {
     },
     repo: { path: "/tmp" },
     hooks: { pre: [], post: [] },
-    executor: { type: "claude", timeout_seconds: 5, retries: 0 },
+    executor: { type: "claude", dangerously_skip_permissions: true, timeout_seconds: 5, retries: 0 },
     log: { level: "info", redact: [] },
     scm: { type: "github", owner: "myorg", repo: "myrepo" },
     feedback: { comment_prefix: "/agent", poll_interval_seconds: 120 },
@@ -178,7 +178,7 @@ describe("processTicket", () => {
     await processTicket({
       ticket,
       provider,
-      config: makeConfig({ executor: { type: "claude", timeout_seconds: 5, retries: 1 } }),
+      config: makeConfig({ executor: { type: "claude", dangerously_skip_permissions: true, timeout_seconds: 5, retries: 1 } }),
       executor: flakyExecutor,
     });
 
@@ -203,7 +203,7 @@ describe("processTicket", () => {
     await processTicket({
       ticket,
       provider,
-      config: makeConfig({ executor: { type: "claude", timeout_seconds: 5, retries: 2 } }),
+      config: makeConfig({ executor: { type: "claude", dangerously_skip_permissions: true, timeout_seconds: 5, retries: 2 } }),
       executor: alwaysFailingExecutor,
     });
 

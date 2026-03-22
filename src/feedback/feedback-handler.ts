@@ -112,7 +112,7 @@ export async function processFeedback(options: {
   let executor = options.executor;
   if (!executor) {
     const { createExecutor } = await import("../pipeline/executor.ts");
-    executor = createExecutor(config.executor.type);
+    executor = createExecutor(config.executor);
   }
 
   const vars = buildTaskVars(ticket);

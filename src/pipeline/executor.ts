@@ -2,8 +2,10 @@
  * @module src/pipeline/executor — Executor SPI contract, factory, and shared utilities.
  */
 
+import type { Config } from "../config.ts";
 import { createClaudeExecutor } from "./claude-executor.ts";
 import { createCodexExecutor } from "./codex-executor.ts";
+import { createDockerExecutor } from "./docker-executor.ts";
 import { createOpencodeExecutor } from "./opencode-executor.ts";
 import { createPiExecutor } from "./pi-executor.ts";
 
@@ -101,13 +103,13 @@ export async function streamToLines(
 }
 
 /**
- * Creates a code executor based on the specified type.
- * @param type - Executor identifier ("claude" | "codex" | "opencode" | "pi").
+ * Creates a code executor based on the executor configuration.
+ * @param executorConfig - Executor configuration from the parsed config file.
  * @returns A {@link CodeExecutor} implementation for the specified type.
  * @throws Error if `type` does not match a known executor.
  */
-export function createExecutor(type: "claude" | "codex" | "opencode" | "pi"): CodeExecutor {
-  switch (type) {
+export function createExecutor(executorConfig: Config["executor"]): CodeExecutor {
+  switch (executorConfig.type) {
     case "claude":
       return createClaudeExecutor();
     case "codex":
@@ -116,7 +118,19 @@ export function createExecutor(type: "claude" | "codex" | "opencode" | "pi"): Co
       return createOpencodeExecutor();
     case "pi":
       return createPiExecutor();
-    default:
-      throw new Error(`Unknown executor type: ${type}`);
+    case "container":
+      return createDockerExecutor({
+        image: executorConfig.image,
+        command: executorConfig.command,
+        memory: executorConfig.memory,
+        cpus: executorConfig.cpus,
+        network: executorConfig.network,
+        env: executorConfig.env,
+        mounts: executorConfig.mounts,
+      });
+    default: {
+      const _exhaustive: never = executorConfig;
+      throw new Error(`Unknown executor type: ${(_exhaustive as { type: string }).type}`);
+    }
   }
 }

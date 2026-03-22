@@ -21,6 +21,9 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
 
+    // Type definitions
+    "types": ["bun"],
+
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,

@@ -27,6 +27,8 @@ agent-worker is not tied to a single agent. It supports any agent harness that c
 - **OpenCode** — open-source terminal-based coding agent
 - **Pi** — the Pi coding agent harness
 
+- **Docker Container** — run any agent CLI inside a container for sandboxing and reproducibility
+
 Adding a new harness is a single file implementing the executor interface.
 
 ### Feedback loop
@@ -36,7 +38,7 @@ After the agent creates a PR, agent-worker monitors the PR for review comments p
 ## Prerequisites
 
 - [Bun](https://bun.sh) 1.0+
-- An agent harness installed and authenticated (Claude Code, Codex, OpenCode, or Pi)
+- An agent harness installed and authenticated (Claude Code, Codex, OpenCode, or Pi) — or [Docker](https://docs.docker.com/get-docker/) if using the `container` executor
 - A ticket provider account with an API key:
   - **Linear** — personal API key
   - **Jira** — username + API token
@@ -142,9 +144,25 @@ hooks:
 
 # --- Executor (optional) ---
 executor:
-  type: claude                          # Agent harness: claude, codex, opencode, or pi (default: claude)
+  type: claude                          # Agent harness: claude, codex, opencode, pi, or container (default: claude)
   timeout_seconds: 300                  # Max time for the agent to complete (default: 300)
   retries: 0                            # Retry attempts on failure, 0–3 (default: 0)
+
+  # --- Docker container executor example ---
+  # type: container
+  # image: "anthropic/claude-code:latest"
+  # command: ["claude", "--print", "-p"]
+  # dangerously_skip_permissions: false   # Insert --dangerously-skip-permissions before prompt
+  # memory: "4g"                          # Limit container memory (e.g. "4g", "512m")
+  # cpus: "2"                             # Limit container CPUs
+  # network: "none"                       # Network mode (default: "none")
+  # env:                                  # Environment variables (supports ${VAR} interpolation)
+  #   ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+  # mounts:                               # Extra volume mounts (source supports ~ expansion)
+  #   - source: "~/.agents/skills"
+  #     dest: "/root/.agents/skills"
+  # timeout_seconds: 300
+  # retries: 0
 
 # --- Feedback (optional) ---
 feedback:
@@ -296,15 +314,95 @@ Invokes the open-source OpenCode terminal-based coding agent.
 
 Invokes the Pi coding agent harness.
 
+### Docker Container
+
+Runs any agent CLI inside a Docker container for sandboxing and reproducibility. The worktree is mounted at `/workspace` inside the container, and the agent command receives the ticket prompt as its final argument.
+
+This is useful when you want:
+- **Isolation** — the agent cannot access the host filesystem or network
+- **Reproducibility** — every run uses the same container image
+- **Resource limits** — constrain CPU and memory usage per task
+
+#### Minimal example (Claude Code in Docker)
+
+```yaml
+executor:
+  type: container
+  image: "anthropic/claude-code:latest"
+  command: ["claude", "--print", "-p"]
+  timeout_seconds: 600
+```
+
+#### Full example with resource limits, env vars, and extra mounts
+
+```yaml
+executor:
+  type: container
+  image: "anthropic/claude-code:latest"
+  command: ["claude", "--print", "-p"]
+  dangerously_skip_permissions: true
+  memory: "4g"
+  cpus: "2"
+  network: "none"
+  env:
+    ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+    GITHUB_TOKEN: "${GITHUB_TOKEN}"
+  mounts:
+    - source: "~/.agents/skills"
+      dest: "/root/.agents/skills"
+    - source: "~/.ssh"
+      dest: "/root/.ssh"
+  timeout_seconds: 600
+  retries: 1
+```
+
+#### Using with OpenCode
+
+```yaml
+executor:
+  type: container
+  image: "ghcr.io/opencode-ai/opencode:latest"
+  command: ["opencode", "--non-interactive"]
+  network: "none"
+  memory: "2g"
+  env:
+    OPENAI_API_KEY: "${OPENAI_API_KEY}"
+  timeout_seconds: 300
+```
+
+#### Key behaviors
+
+| Setting | Description |
+|---|---|
+| `image` | Docker image to run (required) |
+| `command` | Agent CLI command and arguments (required). The ticket prompt is appended as the final argument. |
+| `dangerously_skip_permissions` | When `true`, inserts `--dangerously-skip-permissions` before the prompt argument. |
+| `memory` | Limit container memory (e.g. `"4g"`, `"512m"`). Omit for no limit. |
+| `cpus` | Limit container CPUs (e.g. `"2"`, `"0.5"`). Omit for no limit. |
+| `network` | Docker network mode. Defaults to `"none"` for security — set to `"host"` if the agent needs network access. |
+| `env` | Environment variables passed into the container. Values support `${VAR}` interpolation from the host's `process.env`. Unresolved references resolve to an empty string. |
+| `mounts` | Additional volume mounts beyond the worktree. `source` supports `~` expansion and relative paths (resolved against CWD). |
+
+The worktree is always mounted at `/workspace` and set as the container's working directory. The container is removed after execution (`--rm`).
+
 ### Timeout and retry configuration
 
-Control how long the agent is allowed to run and how many times to retry on failure:
+Control how long the agent is allowed to run and how many times to retry on failure. This applies to all executor types:
 
 ```yaml
 executor:
   type: claude
   timeout_seconds: 300   # Kill the agent if it hasn't finished within this many seconds
   retries: 0             # Retry the full pipeline on non-zero exit or timeout (0–3)
+```
+
+```yaml
+executor:
+  type: container
+  image: "anthropic/claude-code:latest"
+  command: ["claude", "--print", "-p"]
+  timeout_seconds: 600   # Containers may need longer timeouts
+  retries: 1             # Retry the full pipeline on non-zero exit or timeout (0–3)
 ```
 
 If `timeout_seconds` is exceeded the process is killed and the ticket is marked failed. If `retries` is greater than `0`, the full pipeline (pre-hooks → agent → post-hooks) is retried up to that many times before giving up.

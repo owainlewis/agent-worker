@@ -36,6 +36,7 @@ function makeConfig(overrides?: Partial<Config>): Config {
     log: { level: "info", redact: [] },
     scm: { type: "github", owner: "myorg", repo: "myrepo" },
     feedback: { comment_prefix: "/agent", poll_interval_seconds: 120 },
+    prompts: {},
     ...overrides,
   };
 }

@@ -109,6 +109,7 @@ Key config sections validated by Zod in `src/config.ts`:
 | `provider` | Yes | Ticket provider config (type, credentials, poll interval, statuses) |
 | `repo` | Yes | Local repo path (`path`) |
 | `hooks` | No | Pre/post shell commands (`pre[]`, `post[]`) |
+| `prompts` | No | Custom prompts prepended to executor runs (`implement`, `feedback`). Supports template tokens: `{id}`, `{title}`, `{raw_title}`, `{branch}`, `{worktree}`, `{date}` |
 | `executor` | No | Executor type, timeout, retries. Defaults: claude, 300s, 0 retries |
 | `log` | No | Log level, optional file path, and `redact` array for sensitive values |
 | `scm` | Yes | SCM provider config (`type: "github" \| "bitbucket_server"` + provider-specific fields) |

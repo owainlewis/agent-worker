@@ -5,7 +5,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import type { Ticket } from "../providers/types.ts";
 import type { CodeExecutor } from "./executor.ts";
-import { buildTaskVars } from "./interpolate.ts";
+import { buildTaskVars, interpolate } from "./interpolate.ts";
 import { runHooks } from "./hook-runner.ts";
 import { log } from "../logger.ts";
 
@@ -119,6 +119,7 @@ export async function removeWorktree(
  * @param options.repoCwd - Working directory of the git repository.
  * @param options.executor - The code executor to invoke.
  * @param options.timeoutMs - Maximum execution time in milliseconds.
+ * @param options.customPrompt - Optional custom prompt to prepend before the ticket context.
  * @returns PipelineResult indicating success or failure details.
  */
 export async function executePipeline(options: {
@@ -128,8 +129,9 @@ export async function executePipeline(options: {
   repoCwd: string;
   executor: CodeExecutor;
   timeoutMs: number;
+  customPrompt?: string;
 }): Promise<PipelineResult> {
-  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs } = options;
+  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs, customPrompt } = options;
   const vars = buildTaskVars(ticket);
 
   const useWorktree = executor.needsWorktree;
@@ -167,7 +169,10 @@ export async function executePipeline(options: {
     }
 
     // Code executor
-    const prompt = `Ticket: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
+    const customPart = customPrompt
+      ? interpolate(customPrompt, vars) + "\n\n"
+      : "";
+    const prompt = `${customPart}Ticket: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
     const execResult = await executor.run(prompt, effectiveCwd, timeoutMs);
     if (!execResult.success) {
       const reason = execResult.timedOut

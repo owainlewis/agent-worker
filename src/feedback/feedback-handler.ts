@@ -7,7 +7,7 @@ import type { PullRequest, ScmProvider } from "../scm/types.ts";
 import type { FeedbackEvent } from "./comment-filter.ts";
 import type { PRTracker } from "./tracking.ts";
 import { createWorktree, removeWorktree } from "../pipeline/pipeline.ts";
-import { buildTaskVars } from "../pipeline/interpolate.ts";
+import { buildTaskVars, interpolate } from "../pipeline/interpolate.ts";
 import { runHooks } from "../pipeline/hook-runner.ts";
 import { log } from "../logger.ts";
 
@@ -141,13 +141,17 @@ export async function processFeedback(options: {
     // Mark comment as being processed with "eyes" reaction
     await bestEffortReaction(scm, comment.commentId, comment.commentType, "eyes", pr.number);
 
-    const prompt = [
-      `Review feedback on PR #${pr.number}:`,
-      "",
-      comment.body.replace(/^\/agent\s*/i, ""),
-      "",
-      "Address this feedback by pushing additional commits to the current branch.",
-    ].join("\n");
+    const parts: string[] = [];
+    if (config.prompts.feedback) {
+      parts.push(interpolate(config.prompts.feedback, vars));
+      parts.push("");
+    }
+    parts.push(`Review feedback on PR #${pr.number}:`);
+    parts.push("");
+    parts.push(comment.body.replace(/^\/agent\s*/i, ""));
+    parts.push("");
+    parts.push("Address this feedback by pushing additional commits to the current branch.");
+    const prompt = parts.join("\n");
 
     log.info("Processing feedback", {
       ticketId: ticket.identifier,

@@ -90,6 +90,7 @@ export async function processTicket(options: {
         repoCwd: config.repo.path,
         executor,
         timeoutMs: config.executor.timeout_seconds * 1000,
+        customPrompt: config.prompts.implement,
       });
 
       if (lastResult.success) break;

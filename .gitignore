@@ -41,5 +41,9 @@ agent-worker.yaml
 # pi agent local state
 .pi
 
+# local agent skills (keep project skills)
+.agents/*
+!.agents/skills/
+
 # Place for credentials to be set that agent can run for interactive terminal testing
 .credentials.sh

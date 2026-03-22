@@ -154,6 +154,18 @@ const FeedbackSchema = z.object({
 /** Config for the feedback polling system, including comment prefix and poll interval. */
 export type FeedbackConfig = z.infer<typeof FeedbackSchema>;
 
+// --- Prompts schema ---
+
+const PromptsSchema = z.object({
+  /** Custom prompt prepended to the implementation prompt (before ticket title/description). */
+  implement: z.string().optional(),
+  /** Custom prompt prepended to the feedback prompt (before review comment body). */
+  feedback: z.string().optional(),
+}).default({});
+
+/** Config for custom prompts injected into executor runs. */
+export type PromptsConfig = z.infer<typeof PromptsSchema>;
+
 const ConfigFileSchema = z.object({
   provider: ProviderSchema,
   repo: RepoSchema,
@@ -162,6 +174,7 @@ const ConfigFileSchema = z.object({
   log: LogSchema,
   scm: ScmSchema,
   feedback: FeedbackSchema,
+  prompts: PromptsSchema,
 });
 
 type ConfigFile = z.infer<typeof ConfigFileSchema>;

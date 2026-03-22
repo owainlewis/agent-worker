@@ -161,4 +161,52 @@ describe("executePipeline", () => {
     const lines = output.trim().split("\n");
     expect(lines.length).toBe(1);
   });
+
+  test("prepends custom prompt to executor prompt with interpolation", async () => {
+    let receivedPrompt = "";
+    const capturingExecutor: CodeExecutor = {
+      name: "mock",
+      needsWorktree: false,
+      run: async (prompt) => {
+        receivedPrompt = prompt;
+        return { success: true, output: "ok", timedOut: false, exitCode: 0 };
+      },
+    };
+
+    await executePipeline({
+      ticket,
+      preHooks: [],
+      postHooks: [],
+      repoCwd: repoDir,
+      executor: capturingExecutor,
+      timeoutMs: 5000,
+      customPrompt: "Working on {id}: {raw_title}",
+    });
+
+    expect(receivedPrompt).toContain("Working on ENG-100: Test ticket");
+    expect(receivedPrompt).toContain("Ticket: Test ticket");
+  });
+
+  test("works without custom prompt (default behavior)", async () => {
+    let receivedPrompt = "";
+    const capturingExecutor: CodeExecutor = {
+      name: "mock",
+      needsWorktree: false,
+      run: async (prompt) => {
+        receivedPrompt = prompt;
+        return { success: true, output: "ok", timedOut: false, exitCode: 0 };
+      },
+    };
+
+    await executePipeline({
+      ticket,
+      preHooks: [],
+      postHooks: [],
+      repoCwd: repoDir,
+      executor: capturingExecutor,
+      timeoutMs: 5000,
+    });
+
+    expect(receivedPrompt).toBe("Ticket: Test ticket\n\nDo something");
+  });
 });

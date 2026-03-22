@@ -369,4 +369,49 @@ scm:
 `;
     expect(() => loadConfig(writeConfig(yaml))).toThrow();
   });
+
+  test("parses prompts config with implement and feedback", () => {
+    const yaml = `
+${minimalProvider}
+prompts:
+  implement: |
+    Follow the project conventions in AGENTS.md.
+    Always run \`bun typecheck && bun test\` before finishing.
+  feedback: |
+    Keep changes minimal. Only address the specific feedback.
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.prompts.implement).toContain("Follow the project conventions");
+    expect(config.prompts.implement).toContain("bun typecheck");
+    expect(config.prompts.feedback).toContain("Keep changes minimal");
+  });
+
+  test("parses prompts config with only implement", () => {
+    const yaml = `
+${minimalProvider}
+prompts:
+  implement: "Custom implementation prompt"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.prompts.implement).toBe("Custom implementation prompt");
+    expect(config.prompts.feedback).toBeUndefined();
+  });
+
+  test("parses prompts config with only feedback", () => {
+    const yaml = `
+${minimalProvider}
+prompts:
+  feedback: "Custom feedback prompt"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.prompts.implement).toBeUndefined();
+    expect(config.prompts.feedback).toBe("Custom feedback prompt");
+  });
+
+  test("parses config without prompts section (defaults to empty object)", () => {
+    const config = loadConfig(writeConfig(minimalProvider));
+    expect(config.prompts).toEqual({});
+    expect(config.prompts.implement).toBeUndefined();
+    expect(config.prompts.feedback).toBeUndefined();
+  });
 });

@@ -186,6 +186,48 @@ describe("processTicket", () => {
     expect(transitions).not.toContain("Canceled");
   });
 
+  test("emits job_start and job_end events to workerState on success", async () => {
+    const { createWorkerState } = await import("../src/ui/state.ts");
+    const state = createWorkerState();
+    const events: string[] = [];
+    state.subscribe((e) => events.push(e.type));
+
+    const { provider } = makeProvider();
+
+    await processTicket({
+      ticket,
+      provider,
+      config: makeConfig(),
+      logger: noopLogger,
+      executor: mockExecutor({ success: true }),
+      workerState: state,
+    });
+
+    expect(events).toContain("job_start");
+    expect(events).toContain("job_end");
+  });
+
+  test("emits job_end (success:false) when executor fails", async () => {
+    const { createWorkerState } = await import("../src/ui/state.ts");
+    const state = createWorkerState();
+    const events: string[] = [];
+    state.subscribe((e) => events.push(e.type));
+
+    const { provider } = makeProvider();
+
+    await processTicket({
+      ticket,
+      provider,
+      config: makeConfig(),
+      logger: noopLogger,
+      executor: mockExecutor({ success: false }),
+      workerState: state,
+    });
+
+    expect(events).toContain("job_start");
+    expect(events).toContain("job_end");
+  });
+
   test("transitions to failed after all retries exhausted", async () => {
     let callCount = 0;
     const { provider, transitions, comments } = makeProvider();

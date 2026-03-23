@@ -5,6 +5,8 @@ import { createLinearProvider } from "./providers/linear.ts";
 import { createPoller } from "./poller.ts";
 import { processTicket } from "./scheduler.ts";
 import { version } from "../package.json";
+import { createWorkerState } from "./ui/state.ts";
+import { startUiServer } from "./ui/server.ts";
 
 function main() {
   if (process.argv.includes("--version")) {
@@ -39,18 +41,44 @@ function main() {
     redact: [config.apiKey],
   });
 
+  const workerState = createWorkerState();
+
+  // Declare poller as let so the UI server controls closure can reference it
+  // before createPoller is called below.
+  let poller: ReturnType<typeof createPoller>;
+
+  let uiServer: { stop(): void } | null = null;
+  if (config.ui?.enabled) {
+    uiServer = startUiServer({
+      state: workerState,
+      configPath: configPath,
+      port: config.ui.port,
+      host: config.ui.host,
+      token: config.ui.token,
+      controls: {
+        startWorker: () => { poller?.start(); },
+        stopWorker:  () => { poller?.stop(); },
+        cancelJob:   () => { poller?.stop(); }, // v1: stop accepting new jobs
+      },
+    });
+    logger.info("UI dashboard started", {
+      url: `http://${config.ui.host}:${config.ui.port}`,
+    });
+  }
+
   const provider = createLinearProvider({
     apiKey: config.apiKey,
     projectId: config.linear.project_id,
     statuses: config.linear.statuses,
   });
 
-  const poller = createPoller({
+  poller = createPoller({
     provider,
     intervalMs: config.linear.poll_interval_seconds * 1000,
     logger,
+    onPollResult: (tickets) => { workerState.setPendingTickets(tickets); },
     onTicket: async (ticket) => {
-      await processTicket({ ticket, provider, config, logger });
+      await processTicket({ ticket, provider, config, logger, workerState });
     },
   });
 
@@ -64,14 +92,20 @@ function main() {
 
   process.on("SIGINT", () => {
     logger.info("Shutting down", { signal: "SIGINT" });
+    workerState.setWorkerStatus("stopped");
+    uiServer?.stop();
     poller.stop();
   });
   process.on("SIGTERM", () => {
     logger.info("Shutting down", { signal: "SIGTERM" });
+    workerState.setWorkerStatus("stopped");
+    uiServer?.stop();
     poller.stop();
   });
 
+  workerState.setWorkerStatus("running");
   poller.start().then(() => {
+    workerState.setWorkerStatus("stopped");
     process.exit(0);
   }).catch((err) => {
     logger.error("Fatal error", {

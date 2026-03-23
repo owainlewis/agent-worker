@@ -94,13 +94,13 @@ function main() {
     logger.info("Shutting down", { signal: "SIGINT" });
     workerState.setWorkerStatus("stopped");
     uiServer?.stop();
-    poller.stop();
+    poller?.stop();
   });
   process.on("SIGTERM", () => {
     logger.info("Shutting down", { signal: "SIGTERM" });
     workerState.setWorkerStatus("stopped");
     uiServer?.stop();
-    poller.stop();
+    poller?.stop();
   });
 
   workerState.setWorkerStatus("running");

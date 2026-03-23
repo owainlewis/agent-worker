@@ -133,9 +133,17 @@ describe("createPoller", () => {
   test("calls onPollResult with fetched tickets on each cycle", async () => {
     const tickets: Ticket[] = [{ id: "1", identifier: "ENG-1", title: "T", description: undefined }];
     const pollResults: Ticket[][] = [];
+    let stopped = false;
+
     const poller = createPoller({
       provider: {
-        fetchReadyTickets: async () => tickets,
+        fetchReadyTickets: async () => {
+          if (!stopped) {
+            stopped = true;
+            setTimeout(() => poller.stop(), 0);
+          }
+          return tickets;
+        },
         transitionStatus: async () => {},
         postComment: async () => {},
       },
@@ -145,10 +153,7 @@ describe("createPoller", () => {
       onPollResult: (found) => { pollResults.push(found); },
     });
 
-    const stopPromise = poller.start();
-    await new Promise((r) => setTimeout(r, 80));
-    poller.stop();
-    await stopPromise;
+    await poller.start();
 
     expect(pollResults.length).toBeGreaterThan(0);
     expect(pollResults[0]).toEqual(tickets);

@@ -133,15 +133,11 @@ describe("createPoller", () => {
   test("calls onPollResult with fetched tickets on each cycle", async () => {
     const tickets: Ticket[] = [{ id: "1", identifier: "ENG-1", title: "T", description: undefined }];
     const pollResults: Ticket[][] = [];
-    let stopped = false;
 
     const poller = createPoller({
       provider: {
         fetchReadyTickets: async () => {
-          if (!stopped) {
-            stopped = true;
-            setTimeout(() => poller.stop(), 0);
-          }
+          poller.stop(); // call synchronously before returning
           return tickets;
         },
         transitionStatus: async () => {},

@@ -6,6 +6,7 @@ export function createPoller(options: {
   intervalMs: number;
   logger: Logger;
   onTicket: (ticket: Ticket) => Promise<void>;
+  onPollResult?: (tickets: Ticket[]) => void;
 }): { start: () => Promise<void>; stop: () => void } {
   let isRunning = false;
   let wakeSleep: (() => void) | null = null;
@@ -39,6 +40,7 @@ export function createPoller(options: {
         options.logger.info(`Poll #${pollCount} (uptime: ${uptime}) — checking for tickets...`);
         try {
           const tickets = await options.provider.fetchReadyTickets();
+          options.onPollResult?.(tickets);
           if (tickets.length > 0) {
             const ticket = tickets[0]!;
             options.logger.info("Ticket found", {

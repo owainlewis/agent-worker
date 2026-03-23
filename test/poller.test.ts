@@ -130,6 +130,31 @@ describe("createPoller", () => {
     expect(infoMessages[1]).toMatch(/^Poll #2 \(uptime: \d+[ms ]*\d*s?\) — checking for tickets\.\.\.$/);
   });
 
+  test("calls onPollResult with fetched tickets on each cycle", async () => {
+    const tickets: Ticket[] = [{ id: "1", identifier: "ENG-1", title: "T", description: undefined }];
+    const pollResults: Ticket[][] = [];
+
+    const poller = createPoller({
+      provider: {
+        fetchReadyTickets: async () => {
+          poller.stop(); // call synchronously before returning
+          return tickets;
+        },
+        transitionStatus: async () => {},
+        postComment: async () => {},
+      },
+      intervalMs: 50,
+      logger: noopLogger,
+      onTicket: async () => {},
+      onPollResult: (found) => { pollResults.push(found); },
+    });
+
+    await poller.start();
+
+    expect(pollResults.length).toBeGreaterThan(0);
+    expect(pollResults[0]).toEqual(tickets);
+  });
+
   test("stops when stop() is called", async () => {
     let pollCount = 0;
 

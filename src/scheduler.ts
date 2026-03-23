@@ -45,10 +45,10 @@ export async function processTicket(options: {
   const executor = options.executor ?? createExecutor(config.executor.type);
 
   const jobLogger: Logger = {
-    debug: (msg, ctx?) => { logger.debug(msg, ctx); workerState?.appendLog(`[debug] ${msg}${ctx?.line ? ` ${ctx.line}` : ""}`); },
-    info:  (msg, ctx?) => { logger.info(msg, ctx);  workerState?.appendLog(`[info]  ${msg}${ctx?.line ? ` ${ctx.line}` : ""}`); },
-    warn:  (msg, ctx?) => { logger.warn(msg, ctx);  workerState?.appendLog(`[warn]  ${msg}${ctx?.line ? ` ${ctx.line}` : ""}`); },
-    error: (msg, ctx?) => { logger.error(msg, ctx); workerState?.appendLog(`[error] ${msg}${ctx?.line ? ` ${ctx.line}` : ""}`); },
+    debug: (msg, ctx?) => { logger.debug(msg, ctx); workerState?.appendLog(`[debug] ${msg}`); },
+    info:  (msg, ctx?) => { logger.info(msg, ctx);  workerState?.appendLog(`[info]  ${msg}`); },
+    warn:  (msg, ctx?) => { logger.warn(msg, ctx);  workerState?.appendLog(`[warn]  ${msg}`); },
+    error: (msg, ctx?) => { logger.error(msg, ctx); workerState?.appendLog(`[error] ${msg}`); },
   };
 
   // Run pipeline with retries
@@ -106,8 +106,9 @@ export async function processTicket(options: {
       jobLogger.info("Ticket completed", { ticketId: ticket.identifier });
 
       const prUrlMatch = lastResult.output?.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
-      if (prUrlMatch) {
-        workerState?.completeJob({ success: true, prUrl: prUrlMatch[0], review: true });
+      const prUrl = prUrlMatch?.[0]?.replace(/[.,;:!?)\]>'"]+$/, "");
+      if (prUrl) {
+        workerState?.completeJob({ success: true, prUrl, review: true });
       } else {
         workerState?.completeJob({ success: true });
       }

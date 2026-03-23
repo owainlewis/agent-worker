@@ -210,8 +210,8 @@ describe("processTicket", () => {
   test("emits job_end (success:false) when executor fails", async () => {
     const { createWorkerState } = await import("../src/ui/state.ts");
     const state = createWorkerState();
-    const events: string[] = [];
-    state.subscribe((e) => events.push(e.type));
+    const events: Array<{ type: string; [key: string]: unknown }> = [];
+    state.subscribe((e) => events.push(e as { type: string; [key: string]: unknown }));
 
     const { provider } = makeProvider();
 
@@ -224,8 +224,10 @@ describe("processTicket", () => {
       workerState: state,
     });
 
-    expect(events).toContain("job_start");
-    expect(events).toContain("job_end");
+    expect(events.map(e => e.type)).toContain("job_start");
+    const jobEnd = events.find(e => e.type === "job_end");
+    expect(jobEnd).toBeDefined();
+    expect(jobEnd?.success).toBe(false);
   });
 
   test("transitions to failed after all retries exhausted", async () => {

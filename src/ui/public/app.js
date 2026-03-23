@@ -16,26 +16,46 @@ var statsDoneCount = 0;
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
-  const snapshot = await fetch('/api/state').then(function(r) { return r.json(); });
-  populateFromSnapshot(snapshot);
+  try {
+    const snapshot = await fetch('/api/state').then(function(r) { return r.json(); });
+    populateFromSnapshot(snapshot);
 
-  const config = await fetch('/api/config').then(function(r) { return r.json(); });
-  populateSettingsForm(config);
+    const config = await fetch('/api/config').then(function(r) { return r.json(); });
+    populateSettingsForm(config);
+  } catch (err) {
+    console.error('Failed to initialize dashboard:', err);
+    var errEl = document.getElementById('config-error');
+    if (errEl) {
+      errEl.textContent = 'Could not connect to agent-worker. Is the process running?';
+      errEl.style.display = 'block';
+    }
+  }
 }
 
 init();
 
 // ── SSE ──────────────────────────────────────────────────────────────────────
 
+var _reconnectTimer = null;
+
 function connectSSE() {
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
   var es = new EventSource('/api/events');
   es.onmessage = function(e) {
     handleEvent(JSON.parse(e.data));
   };
   es.onerror = function() {
     es.close();
-    fetch('/api/state').then(function(r) { return r.json(); }).then(populateFromSnapshot);
-    setTimeout(connectSSE, 2000);
+    fetch('/api/state').then(function(r) { return r.json(); }).then(populateFromSnapshot).catch(function() {});
+    if (!_reconnectTimer) {
+      _reconnectTimer = setTimeout(function() {
+        _reconnectTimer = null;
+        connectSSE();
+      }, 2000);
+    }
   };
 }
 
@@ -865,7 +885,7 @@ function stepNum(btn, amount) {
   var input = btn.closest('.num-field').querySelector('input');
   var min = parseInt(input.min) || 0;
   var max = parseInt(input.max) || 9999;
-  input.value = Math.max(min, Math.min(max, parseInt(input.value) + amount));
+  input.value = Math.max(min, Math.min(max, (parseInt(input.value) || min) + amount));
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────

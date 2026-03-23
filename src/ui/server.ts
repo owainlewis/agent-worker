@@ -70,7 +70,11 @@ export function startUiServer(options: UiServerOptions): { stop(): void } {
         return new Response(file);
       }
       if (pathname.startsWith("/public/")) {
-        const file = Bun.file(join(PUBLIC_DIR, pathname.slice("/public/".length)));
+        const filePath = join(PUBLIC_DIR, pathname.slice("/public/".length));
+        if (!filePath.startsWith(PUBLIC_DIR + "/")) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        const file = Bun.file(filePath);
         return new Response(file);
       }
 
@@ -115,8 +119,8 @@ export function startUiServer(options: UiServerOptions): { stop(): void } {
         try {
           const config = readConfigFile(configPath);
           return Response.json(config);
-        } catch (err) {
-          return Response.json({ ok: false, error: String(err) }, { status: 500 });
+        } catch {
+          return Response.json({ error: "Failed to read config" }, { status: 500 });
         }
       }
 
@@ -127,11 +131,10 @@ export function startUiServer(options: UiServerOptions): { stop(): void } {
           state.notifyConfigUpdate();
           return Response.json({ ok: true });
         } catch (err) {
-          // Return Zod issues array if available, otherwise string
-          const errors = (err instanceof Error && "issues" in err)
-            ? (err as { issues: unknown[] }).issues
-            : [String(err)];
-          return Response.json({ ok: false, errors }, { status: 400 });
+          if (err && typeof err === "object" && "issues" in err) {
+            return Response.json({ ok: false, errors: (err as { issues: unknown[] }).issues }, { status: 400 });
+          }
+          return new Response("Internal server error", { status: 500 });
         }
       }
 

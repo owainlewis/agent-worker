@@ -33,6 +33,7 @@ export type UiEvent =
   | { type: "job_stage"; stage: JobStage }
   | { type: "job_end"; success: boolean; prUrl?: string }
   | { type: "job_error"; error: string }
+  | { type: "job_dismiss" }
   | { type: "history_add"; row: JobHistoryRow }
   | { type: "pending_tickets"; count: number }
   | { type: "config_update" };
@@ -102,6 +103,7 @@ export function createWorkerState(): WorkerState {
       broadcast({ type: "job_start", job: { ...job } });
     },
 
+    // Caller must call setActiveJob() before these methods; they no-op if no active job.
     setJobStage(stage) {
       if (activeJob) {
         activeJob.stage = stage;
@@ -162,8 +164,7 @@ export function createWorkerState(): WorkerState {
 
     dismissJob() {
       activeJob = null;
-      // Broadcast so SSE clients clear the card immediately
-      broadcast({ type: "job_end", success: true });
+      broadcast({ type: "job_dismiss" });
     },
 
     setPendingTickets(tickets) {

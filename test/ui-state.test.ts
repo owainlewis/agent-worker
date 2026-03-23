@@ -61,6 +61,14 @@ describe("createWorkerState", () => {
     expect(types).toContain("history_add");
   });
 
+  test("completeJob with review:true sets history status to review", () => {
+    const state = createWorkerState();
+    state.setActiveJob({ id: "abc", identifier: "ENG-2", title: "PR Task", branch: "b", stage: "post-hook", startedAt: Date.now() - 1000, logLines: [] });
+    state.completeJob({ success: true, prUrl: "https://github.com/org/repo/pull/42", review: true });
+    expect(state.getSnapshot().history[0]!.status).toBe("review");
+    expect(state.getSnapshot().history[0]!.prUrl).toBe("https://github.com/org/repo/pull/42");
+  });
+
   test("completeJob caps history at 50 entries", () => {
     const state = createWorkerState();
     for (let i = 0; i < 55; i++) {

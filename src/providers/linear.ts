@@ -55,10 +55,10 @@ export function createLinearProvider(options: {
 
   return {
     async fetchReadyTickets(): Promise<Ticket[]> {
+      const project = await withBackoff(() => client.project(options.projectId));
       const issues = await withBackoff(() =>
-        client.issues({
+        project.issues({
           filter: {
-            project: { id: { eq: options.projectId } },
             state: { name: { eq: options.statuses.ready } },
           },
         })

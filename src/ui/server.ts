@@ -116,6 +116,13 @@ export function startUiServer(options: UiServerOptions): { stop(): void } {
       }
 
       if (pathname === "/api/config" && req.method === "GET") {
+        // Protect config reads with token auth too — config may contain sensitive fields
+        if (token && req.headers.get("X-UI-Token") !== token) {
+          return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         try {
           const config = readConfigFile(configPath);
           return Response.json(config);
@@ -139,7 +146,10 @@ export function startUiServer(options: UiServerOptions): { stop(): void } {
       }
 
       if (pathname === "/api/worker/start" && req.method === "POST") {
-        controls?.startWorker?.();
+        const snapshot = state.getSnapshot();
+        if (snapshot.workerStatus !== "running") {
+          controls?.startWorker?.();
+        }
         return Response.json({ ok: true });
       }
 

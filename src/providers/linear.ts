@@ -81,13 +81,19 @@ export function createLinearProvider(options: {
       const target = states.find((s) => s.name === statusName);
       if (!target) throw new Error(`Status "${statusName}" not found on team`);
 
-      await withBackoff(() => client.updateIssue(ticketId, { stateId: target.id }));
+      const result = await withBackoff(() => client.updateIssue(ticketId, { stateId: target.id }));
+      if (!result.success) {
+        throw new Error(`Failed to transition issue ${ticketId} to "${statusName}"`);
+      }
     },
 
     async postComment(ticketId: string, body: string): Promise<void> {
-      await withBackoff(() =>
+      const result = await withBackoff(() =>
         client.createComment({ issueId: ticketId, body })
       );
+      if (!result.success) {
+        throw new Error(`Failed to post comment on issue ${ticketId}`);
+      }
     },
   };
 }

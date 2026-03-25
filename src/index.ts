@@ -72,13 +72,18 @@ function main() {
     statuses: config.linear.statuses,
   });
 
+  // Track active ticket so we can revert it on shutdown
+  let activeTicket: { id: string; identifier: string } | null = null;
+
   poller = createPoller({
     provider,
     intervalMs: config.linear.poll_interval_seconds * 1000,
     logger,
     onPollResult: (tickets) => { workerState.setPendingTickets(tickets); },
     onTicket: async (ticket) => {
+      activeTicket = { id: ticket.id, identifier: ticket.identifier };
       await processTicket({ ticket, provider, config, logger, workerState });
+      activeTicket = null;
     },
   });
 
@@ -90,18 +95,28 @@ function main() {
     executor: config.executor.type,
   });
 
-  process.on("SIGINT", () => {
-    logger.info("Shutting down", { signal: "SIGINT" });
+  async function gracefulShutdown(signal: string) {
+    logger.info("Shutting down", { signal });
+    poller?.stop();
+    if (activeTicket) {
+      logger.info("Reverting active ticket to Todo", { ticketId: activeTicket.identifier });
+      try {
+        await provider.transitionStatus(activeTicket.id, config.linear.statuses.ready);
+        logger.info("Ticket reverted to Todo", { ticketId: activeTicket.identifier });
+      } catch (err) {
+        logger.error("Failed to revert ticket", {
+          ticketId: activeTicket.identifier,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
     workerState.setWorkerStatus("stopped");
     uiServer?.stop();
-    poller?.stop();
-  });
-  process.on("SIGTERM", () => {
-    logger.info("Shutting down", { signal: "SIGTERM" });
-    workerState.setWorkerStatus("stopped");
-    uiServer?.stop();
-    poller?.stop();
-  });
+    process.exit(0);
+  }
+
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
   workerState.setWorkerStatus("running");
   poller.start().then(() => {

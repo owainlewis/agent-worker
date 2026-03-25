@@ -64,12 +64,25 @@ export function createLinearProvider(options: {
         })
       );
 
-      return issues.nodes.map((issue) => ({
-        id: issue.id,
-        identifier: issue.identifier,
-        title: issue.title,
-        description: issue.description ?? undefined,
-      }));
+      return issues.nodes
+        .map((issue) => ({
+          id: issue.id,
+          identifier: issue.identifier,
+          title: issue.title,
+          description: issue.description ?? undefined,
+          priority: issue.priority,
+        }))
+        .sort((a, b) => {
+          // Higher priority first (1=urgent, 4=low, 0=none)
+          // Treat 0 (no priority) as lowest
+          const pa = a.priority || 5;
+          const pb = b.priority || 5;
+          if (pa !== pb) return pa - pb;
+          // Same priority: oldest ticket first (by identifier number)
+          const na = parseInt(a.identifier.replace(/\D/g, ''), 10);
+          const nb = parseInt(b.identifier.replace(/\D/g, ''), 10);
+          return na - nb;
+        });
     },
 
     async transitionStatus(ticketId: string, statusName: string): Promise<void> {

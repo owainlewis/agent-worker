@@ -73,8 +73,9 @@ export async function executePipeline(options: {
   executor: CodeExecutor;
   timeoutMs: number;
   logger: Logger;
+  onStageChange?: (stage: "pre-hook" | "executor" | "post-hook") => void;
 }): Promise<PipelineResult> {
-  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs, logger } = options;
+  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs, logger, onStageChange } = options;
   const vars = buildTaskVars(ticket);
 
   const useWorktree = executor.needsWorktree;
@@ -100,6 +101,7 @@ export async function executePipeline(options: {
 
   try {
     // Pre-hooks
+    onStageChange?.("pre-hook");
     if (preHooks.length > 0) {
       const preResult = await runHooks(preHooks, effectiveCwd, vars, logger);
       if (!preResult.success) {
@@ -112,6 +114,7 @@ export async function executePipeline(options: {
     }
 
     // Code executor
+    onStageChange?.("executor");
     const prompt = `Linear ticket: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
     const execResult = await executor.run(prompt, effectiveCwd, timeoutMs, logger);
     if (!execResult.success) {
@@ -126,6 +129,7 @@ export async function executePipeline(options: {
     }
 
     // Post-hooks
+    onStageChange?.("post-hook");
     if (postHooks.length > 0) {
       const postResult = await runHooks(postHooks, effectiveCwd, vars, logger);
       if (!postResult.success) {
@@ -141,6 +145,19 @@ export async function executePipeline(options: {
   } finally {
     if (worktreePath) {
       await removeWorktree(repoCwd, worktreePath, logger);
+    }
+    // Always clean up the branch to prevent stale branch errors on retry
+    if (useWorktree) {
+      try {
+        const delProc = Bun.spawn(["sh", "-c", `git branch -D ${vars.branch}`], {
+          cwd: repoCwd,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        await delProc.exited;
+      } catch {
+        // Best-effort cleanup
+      }
     }
   }
 }

@@ -3,6 +3,7 @@ export interface Ticket {
   identifier: string;
   title: string;
   description: string | undefined;
+  priority: number;
 }
 
 export interface TicketProvider {

@@ -3,6 +3,7 @@ import type { Config } from "./config.ts";
 import type { Ticket, TicketProvider } from "./providers/types.ts";
 import { executePipeline } from "./pipeline/pipeline.ts";
 import { createExecutor, type CodeExecutor } from "./pipeline/executor.ts";
+import type { WorkerState } from "./ui/state.ts";
 
 function lastNLines(text: string, n: number): string {
   const lines = text.split("\n");
@@ -15,8 +16,9 @@ export async function processTicket(options: {
   config: Config;
   logger: Logger;
   executor?: CodeExecutor;
+  workerState?: WorkerState;
 }): Promise<void> {
-  const { ticket, provider, config, logger } = options;
+  const { ticket, provider, config, logger, workerState } = options;
 
   // Claim the ticket
   try {
@@ -30,14 +32,31 @@ export async function processTicket(options: {
     return;
   }
 
+  workerState?.setActiveJob({
+    id: ticket.id,
+    identifier: ticket.identifier,
+    title: ticket.title,
+    branch: `agent/task-${ticket.identifier}`,
+    stage: "pre-hook",
+    startedAt: Date.now(),
+    logLines: [],
+  });
+
   const executor = options.executor ?? createExecutor(config.executor.type);
+
+  const jobLogger: Logger = {
+    debug: (msg, ctx?) => { logger.debug(msg, ctx); workerState?.appendLog(`[debug] ${msg}`); },
+    info:  (msg, ctx?) => { logger.info(msg, ctx);  workerState?.appendLog(`[info]  ${msg}`); },
+    warn:  (msg, ctx?) => { logger.warn(msg, ctx);  workerState?.appendLog(`[warn]  ${msg}`); },
+    error: (msg, ctx?) => { logger.error(msg, ctx); workerState?.appendLog(`[error] ${msg}`); },
+  };
 
   // Run pipeline with retries
   let lastResult: Awaited<ReturnType<typeof executePipeline>> | undefined;
 
   for (let attempt = 0; attempt <= config.executor.retries; attempt++) {
     if (attempt > 0) {
-      logger.warn("Retrying pipeline", {
+      jobLogger.warn("Retrying pipeline", {
         ticketId: ticket.identifier,
         attempt,
         maxRetries: config.executor.retries,
@@ -52,12 +71,12 @@ export async function processTicket(options: {
         repoCwd: config.repo.path,
         executor,
         timeoutMs: config.executor.timeout_seconds * 1000,
-        logger,
+        logger: jobLogger,
       });
 
       if (lastResult.success) break;
     } catch (err) {
-      logger.error("Pipeline threw unexpected error", {
+      jobLogger.error("Pipeline threw unexpected error", {
         ticketId: ticket.identifier,
         attempt,
         error: err instanceof Error ? err.message : String(err),
@@ -84,7 +103,15 @@ export async function processTicket(options: {
       ].join("\n");
       await provider.postComment(ticket.id, comment);
 
-      logger.info("Ticket completed", { ticketId: ticket.identifier });
+      jobLogger.info("Ticket completed", { ticketId: ticket.identifier });
+
+      const prUrlMatch = lastResult.output?.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/);
+      const prUrl = prUrlMatch?.[0]?.replace(/[.,;:!?)\]>'"]+$/, "");
+      if (prUrl) {
+        workerState?.completeJob({ success: true, prUrl, review: true });
+      } else {
+        workerState?.completeJob({ success: true });
+      }
     } else {
       await provider.transitionStatus(ticket.id, config.linear.statuses.failed);
 
@@ -100,15 +127,18 @@ export async function processTicket(options: {
       ].join("\n");
 
       await provider.postComment(ticket.id, comment);
-      logger.error("Ticket failed", {
+      jobLogger.error("Ticket failed", {
         ticketId: ticket.identifier,
         stage: lastResult?.stage,
       });
+
+      workerState?.completeJob({ success: false });
     }
   } catch (err) {
-    logger.error("Failed to update ticket status", {
+    jobLogger.error("Failed to update ticket status", {
       ticketId: ticket.identifier,
       error: err instanceof Error ? err.message : String(err),
     });
+    workerState?.errorJob(err instanceof Error ? err.message : String(err));
   }
 }

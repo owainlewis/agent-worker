@@ -3,7 +3,7 @@
 #   cp agent-worker.example.yaml agent-worker.yaml
 
 # --- Provider (required) ---
-# Choose one: linear, jira, or plane
+# Choose one: linear, jira, plane, or github
 provider:
   type: linear
 
@@ -48,6 +48,22 @@ provider:
   #   in_progress: "In Progress"
   #   code_review: "Code Review"
   #   verification: "Verification"
+  #   failed: "Canceled"
+
+  # --- GitHub Projects v2 example ---
+  # type: github
+  # owner: "your-github-org"
+  # repo: "your-repo"
+  # project_number: 5
+  # owner_type: "organization"                # "organization" (default) or "user"
+  # status_field: "Status"                    # Name of the status field (default: "Status")
+  # query: "assignee:bot-user label:agent"    # Optional: filter by assignee/label
+  # poll_interval_seconds: 60
+  # statuses:
+  #   ready: "Todo"
+  #   in_progress: "In progress"
+  #   code_review: "In review"
+  #   verification: "Done"
   #   failed: "Canceled"
 
 # --- SCM (required) ---
@@ -123,5 +139,6 @@ log:
 # Linear:           LINEAR_API_KEY=your-linear-api-key
 # Jira:              JIRA_USERNAME=your-username JIRA_API_TOKEN=your-token
 # Plane:             PLANE_API_KEY=your-plane-api-key
+# GitHub Projects:   GITHUB_TOKEN=your-github-token (needs repo + project scopes)
 # GitHub SCM:        GITHUB_TOKEN=your-github-token
 # BitBucket Server:   BITBUCKET_TOKEN=your-bitbucket-token

@@ -50,10 +50,27 @@ const PlaneProviderSchema = z.object({
 /** Plane provider config requiring a workspace slug, project ID, query, and status mappings. */
 export type PlaneProviderConfig = z.infer<typeof PlaneProviderSchema>;
 
+const GitHubProviderSchema = z.object({
+  type: z.literal("github"),
+  owner: z.string(),
+  repo: z.string(),
+  project_number: z.number().int().positive(),
+  owner_type: z.enum(["organization", "user"]).default("organization"),
+  status_field: z.string().default("Status"),
+  /** Optional filter for project items. Supports `assignee:login` and `label:name` filters, space-separated. */
+  query: z.string().optional(),
+  poll_interval_seconds: z.number().positive().default(60),
+  statuses: StatusesSchema,
+});
+
+/** GitHub Projects v2 provider config requiring owner, repo, project number, and status mappings. */
+export type GitHubProviderConfig = z.infer<typeof GitHubProviderSchema>;
+
 const ProviderSchema = z.discriminatedUnion("type", [
   LinearProviderSchema,
   JiraProviderSchema,
   PlaneProviderSchema,
+  GitHubProviderSchema,
 ]);
 
 /** Discriminated union of all supported ticket provider configurations. */

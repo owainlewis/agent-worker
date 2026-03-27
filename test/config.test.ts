@@ -356,10 +356,71 @@ executor:
     expect(() => loadConfig(writeConfig(yaml))).toThrow();
   });
 
-  test("rejects invalid provider type", () => {
+  test("parses github provider config", () => {
     const yaml = `
 provider:
   type: github
+  owner: "my-org"
+  repo: "my-repo"
+  project_number: 5
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    code_review: "Code Review"
+    verification: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+scm:
+  type: github
+  owner: "my-org"
+  repo: "my-repo"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.provider.type).toBe("github");
+    if (config.provider.type === "github") {
+      expect(config.provider.owner).toBe("my-org");
+      expect(config.provider.repo).toBe("my-repo");
+      expect(config.provider.project_number).toBe(5);
+      expect(config.provider.owner_type).toBe("organization");
+      expect(config.provider.status_field).toBe("Status");
+      expect(config.provider.poll_interval_seconds).toBe(60);
+    }
+  });
+
+  test("parses github provider config with user owner_type", () => {
+    const yaml = `
+provider:
+  type: github
+  owner: "myuser"
+  repo: "my-repo"
+  project_number: 1
+  owner_type: "user"
+  status_field: "State"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    code_review: "Code Review"
+    verification: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+scm:
+  type: github
+  owner: "myuser"
+  repo: "my-repo"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    if (config.provider.type === "github") {
+      expect(config.provider.owner_type).toBe("user");
+      expect(config.provider.status_field).toBe("State");
+    }
+  });
+
+  test("rejects invalid provider type", () => {
+    const yaml = `
+provider:
+  type: notion
 repo:
   path: "/tmp/repo"
 scm:

@@ -43,6 +43,7 @@ After the agent creates a PR, agent-worker monitors the PR for review comments p
   - **Linear** — personal API key
   - **Jira** — username + API token
   - **Plane** — personal API key
+  - **GitHub Projects** — `GITHUB_TOKEN` with `repo` and `project` scopes
 - An SCM token for PR creation:
   - **GitHub** — `GITHUB_TOKEN`
   - **Bitbucket Server** — `BITBUCKET_TOKEN`
@@ -72,7 +73,7 @@ cp agent-worker.example.yaml agent-worker.yaml
 
 ```yaml
 # --- Provider (required) ---
-# Choose one: linear, jira, or plane
+# Choose one: linear, jira, plane, or github
 provider:
   type: linear                          # Provider type (required)
 
@@ -112,6 +113,22 @@ provider:
   #   in_progress: "In Progress"
   #   code_review: "Code Review"
   #   verification: "Verification"
+  #   failed: "Canceled"
+
+  # --- GitHub Projects v2 example ---
+  # type: github
+  # owner: "your-github-org"
+  # repo: "your-repo"
+  # project_number: 5                       # Project number from the URL
+  # owner_type: "organization"              # "organization" (default) or "user"
+  # status_field: "Status"                  # Name of the single-select status field (default: "Status")
+  # query: "assignee:bot-user label:agent"  # Optional: filter by assignee and/or label
+  # poll_interval_seconds: 60
+  # statuses:
+  #   ready: "Todo"
+  #   in_progress: "In progress"
+  #   code_review: "In review"
+  #   verification: "Done"
   #   failed: "Canceled"
 
 # --- SCM (required) ---
@@ -184,7 +201,7 @@ log:
 | `JIRA_USERNAME` | Jira | Your Jira username |
 | `JIRA_API_TOKEN` | Jira | Your Jira API token |
 | `PLANE_API_KEY` | Plane | Your Plane API key |
-| `GITHUB_TOKEN` | SCM (GitHub) | GitHub personal access token with repo scope |
+| `GITHUB_TOKEN` | GitHub Projects / SCM (GitHub) | GitHub personal access token with `repo` and `project` scopes |
 | `BITBUCKET_TOKEN` | SCM (Bitbucket Server) | Bitbucket Server personal access token |
 
 ### Hook variable interpolation

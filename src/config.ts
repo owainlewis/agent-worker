@@ -9,31 +9,86 @@ const StatusesSchema = z.object({
   failed: z.string(),
 });
 
-const LinearSchema = z.object({
-  project_id: z.string(),
-  poll_interval_seconds: z.number().positive().default(60),
-  statuses: StatusesSchema,
-});
+// SAM-481 cross-repo work-stealing: a daemon can be configured with EITHER
+//   project_id: <single uuid>                (legacy, single-project mode)
+// OR
+//   project_ids: [<primary uuid>, <fallback uuid>, ...]   (priority-ordered list)
+//
+// At least one must be set. Both is rejected — caller bug. The provider walks
+// project_ids in order and returns tickets from the first non-empty project.
+// A daemon configured with [primary, fallback] only consults `fallback` when
+// `primary` is empty — matches the user mental model "claude-ia helps with
+// studio-os work only when its own queue is drained, not in parallel."
+const LinearSchema = z
+  .object({
+    project_id: z.string().optional(),
+    project_ids: z.array(z.string()).optional(),
+    poll_interval_seconds: z.number().positive().default(60),
+    statuses: StatusesSchema,
+  })
+  .refine(
+    (v) =>
+      Boolean(v.project_id) !== Boolean(v.project_ids && v.project_ids.length),
+    {
+      message:
+        "linear: exactly one of `project_id` (legacy) or `project_ids` (multi-project) must be set",
+      path: ["project_id"],
+    },
+  );
 
-const RepoSchema = z.object({
-  path: z.string(),
-});
+// SAM-481 cross-repo work-stealing: a daemon can be configured with EITHER
+//   path: <single absolute path>            (legacy, all tickets ship from here)
+// OR per-label routing:
+//   path_by_label:
+//     "repo:studio-os": "/Users/.../studio-os"
+//     "repo:agent-worker-pilot": "/Users/.../agent-worker-pilot"
+//   default_path: "/Users/.../studio-os"   # used when ticket has no repo:* label
+//
+// When `path_by_label` is set, the scheduler reads the ticket's labels, finds
+// the FIRST one matching a key in `path_by_label`, and uses the mapped path as
+// the worktree base. If no label matches, falls back to `default_path`. If
+// `default_path` is unset and no label matches, the daemon refuses to claim
+// the ticket (logs an error, skips it). This refuses-on-ambiguity stance is
+// intentional: silently shipping from the wrong repo is the failure mode we
+// are trying to prevent.
+const RepoSchema = z
+  .object({
+    path: z.string().optional(),
+    path_by_label: z.record(z.string(), z.string()).optional(),
+    default_path: z.string().optional(),
+  })
+  .refine(
+    (v) =>
+      Boolean(v.path) ||
+      Boolean(v.path_by_label && Object.keys(v.path_by_label).length > 0),
+    {
+      message:
+        "repo: must set either `path` (legacy) or `path_by_label` (per-ticket routing)",
+      path: ["path"],
+    },
+  );
 
-const HooksSchema = z.object({
-  pre: z.array(z.string()).default([]),
-  post: z.array(z.string()).default([]),
-}).default({ pre: [], post: [] });
+const HooksSchema = z
+  .object({
+    pre: z.array(z.string()).default([]),
+    post: z.array(z.string()).default([]),
+  })
+  .default({ pre: [], post: [] });
 
-const ExecutorSchema = z.object({
-  type: z.enum(["claude", "codex"]).default("claude"),
-  timeout_seconds: z.number().positive().default(300),
-  retries: z.number().int().min(0).max(3).default(0),
-}).default({ type: "claude", timeout_seconds: 300, retries: 0 });
+const ExecutorSchema = z
+  .object({
+    type: z.enum(["claude", "codex"]).default("claude"),
+    timeout_seconds: z.number().positive().default(300),
+    retries: z.number().int().min(0).max(3).default(0),
+  })
+  .default({ type: "claude", timeout_seconds: 300, retries: 0 });
 
-const LogSchema = z.object({
-  file: z.string().optional(),
-  level: z.enum(["debug", "info", "warn", "error"]).default("info"),
-}).default({ level: "info" });
+const LogSchema = z
+  .object({
+    file: z.string().optional(),
+    level: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  })
+  .default({ level: "info" });
 
 const ConfigFileSchema = z.object({
   linear: LinearSchema,
@@ -60,7 +115,10 @@ export function loadConfig(filePath: string): Config {
 
   // Backward compat: map `claude` key to `executor` with type "claude"
   if (raw.claude && !raw.executor) {
-    raw.executor = { ...(raw.claude as Record<string, unknown>), type: "claude" };
+    raw.executor = {
+      ...(raw.claude as Record<string, unknown>),
+      type: "claude",
+    };
     delete raw.claude;
   }
 

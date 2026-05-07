@@ -1,5 +1,10 @@
 import { describe, test, expect } from "bun:test";
-import { slugify, sanitizeTitle, buildTaskVars, interpolate } from "../src/pipeline/interpolate.ts";
+import {
+  slugify,
+  sanitizeTitle,
+  buildTaskVars,
+  interpolate,
+} from "../src/pipeline/interpolate.ts";
 
 describe("slugify", () => {
   test("lowercases and replaces spaces with hyphens", () => {
@@ -33,7 +38,9 @@ describe("sanitizeTitle", () => {
 
   test("preserves safe characters", () => {
     expect(sanitizeTitle("Add login page (v2)")).toBe("Add login page (v2)");
-    expect(sanitizeTitle("Fix bug #123 - urgent!")).toBe("Fix bug #123 - urgent!");
+    expect(sanitizeTitle("Fix bug #123 - urgent!")).toBe(
+      "Fix bug #123 - urgent!",
+    );
   });
 });
 
@@ -44,6 +51,8 @@ describe("buildTaskVars", () => {
       identifier: "ENG-123",
       title: "Fix login bug",
       description: "Some description",
+      labels: [],
+      projectId: "proj-1",
     });
 
     expect(vars.id).toBe("ENG-123");
@@ -55,17 +64,23 @@ describe("buildTaskVars", () => {
 });
 
 describe("interpolate", () => {
-  const vars = { id: "ENG-123", title: "fix-login-bug", raw_title: "Fix login bug", branch: "agent/task-ENG-123", worktree: "/tmp/agent-worker-agent-task-ENG-123" };
+  const vars = {
+    id: "ENG-123",
+    title: "fix-login-bug",
+    raw_title: "Fix login bug",
+    branch: "agent/task-ENG-123",
+    worktree: "/tmp/agent-worker-agent-task-ENG-123",
+  };
 
   test("replaces all variables", () => {
     expect(interpolate("git checkout -b {branch}", vars)).toBe(
-      "git checkout -b agent/task-ENG-123"
+      "git checkout -b agent/task-ENG-123",
     );
   });
 
   test("replaces multiple variables in one string", () => {
     expect(interpolate("{id} {title} {branch}", vars)).toBe(
-      "ENG-123 fix-login-bug agent/task-ENG-123"
+      "ENG-123 fix-login-bug agent/task-ENG-123",
     );
   });
 
@@ -75,7 +90,7 @@ describe("interpolate", () => {
 
   test("replaces raw_title variable", () => {
     expect(interpolate("gh pr create --title '{raw_title}'", vars)).toBe(
-      "gh pr create --title 'Fix login bug'"
+      "gh pr create --title 'Fix login bug'",
     );
   });
 
@@ -85,12 +100,14 @@ describe("interpolate", () => {
 
   test("replaces {date} with an ISO 8601 date string", () => {
     const result = interpolate("run at {date}", vars);
-    expect(result).toMatch(/^run at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(result).toMatch(
+      /^run at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
   });
 
   test("replaces {worktree} with the worktree path", () => {
     expect(interpolate("cd {worktree}", vars)).toBe(
-      "cd /tmp/agent-worker-agent-task-ENG-123"
+      "cd /tmp/agent-worker-agent-task-ENG-123",
     );
   });
 });

@@ -13,7 +13,9 @@ const noopLogger: Logger = {
 const vars: TaskVars = {
   id: "ENG-123",
   title: "fix-bug",
+  raw_title: "Fix bug",
   branch: "agent/task-ENG-123",
+  worktree: "/tmp/agent-worker-agent-task-ENG-123",
 };
 
 describe("runHooks", () => {
@@ -23,7 +25,12 @@ describe("runHooks", () => {
   });
 
   test("succeeds with passing commands", async () => {
-    const result = await runHooks(["echo hello", "echo world"], "/tmp", vars, noopLogger);
+    const result = await runHooks(
+      ["echo hello", "echo world"],
+      "/tmp",
+      vars,
+      noopLogger,
+    );
     expect(result.success).toBe(true);
   });
 
@@ -38,19 +45,14 @@ describe("runHooks", () => {
       ["exit 1", "echo should-not-run"],
       "/tmp",
       vars,
-      noopLogger
+      noopLogger,
     );
     expect(result.success).toBe(false);
     expect(result.failedCommand).toBe("exit 1");
   });
 
   test("interpolates variables in commands", async () => {
-    const result = await runHooks(
-      ["echo {id}"],
-      "/tmp",
-      vars,
-      noopLogger
-    );
+    const result = await runHooks(["echo {id}"], "/tmp", vars, noopLogger);
     expect(result.success).toBe(true);
   });
 });

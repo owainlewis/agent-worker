@@ -26,7 +26,7 @@ function main() {
   } catch (err) {
     console.error(
       "Configuration error:",
-      err instanceof Error ? err.message : err
+      err instanceof Error ? err.message : err,
     );
     process.exit(1);
   }
@@ -39,9 +39,13 @@ function main() {
     redact: [config.apiKey],
   });
 
+  // SAM-481: provider accepts either single projectId (legacy) or projectIds
+  // array (multi-project). Config validation guarantees exactly one is set.
   const provider = createLinearProvider({
     apiKey: config.apiKey,
-    projectId: config.linear.project_id,
+    ...(config.linear.project_id
+      ? { projectId: config.linear.project_id }
+      : { projectIds: config.linear.project_ids! }),
     statuses: config.linear.statuses,
   });
 
@@ -57,9 +61,12 @@ function main() {
   printSplash(config.executor.type);
 
   logger.info("Agent Worker started", {
-    projectId: config.linear.project_id,
+    projectIds:
+      config.linear.project_ids ??
+      (config.linear.project_id ? [config.linear.project_id] : []),
     pollInterval: config.linear.poll_interval_seconds,
     executor: config.executor.type,
+    repoMode: config.repo.path_by_label ? "path_by_label" : "single",
   });
 
   process.on("SIGINT", () => {
@@ -71,14 +78,17 @@ function main() {
     poller.stop();
   });
 
-  poller.start().then(() => {
-    process.exit(0);
-  }).catch((err) => {
-    logger.error("Fatal error", {
-      error: err instanceof Error ? err.message : String(err),
+  poller
+    .start()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((err) => {
+      logger.error("Fatal error", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      process.exit(1);
     });
-    process.exit(1);
-  });
 }
 
 main();

@@ -123,16 +123,28 @@ export async function executePipeline(options: {
 
     // Code executor
     const prompt = `Linear ticket: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
+    // SAM-400: pass the ticket identifier so the inactivity watchdog can
+    // include it in the structured `watchdog_kill` log entry — required
+    // by the SAM-400 acceptance criteria so log consumers can attribute
+    // a kill to the specific ticket that hung.
     const execResult = await executor.run(
       prompt,
       effectiveCwd,
       timeoutMs,
       logger,
+      { ticketIdentifier: ticket.identifier },
     );
     if (!execResult.success) {
+      // SAM-400: distinguish watchdog kill from hard timeout in the Linear
+      // failure comment — operators triaging a Canceled ticket need to know
+      // whether the executor produced no output for long enough to trip the
+      // inactivity watchdog (likely a hung session, retry-safe) versus
+      // hitting the wall-clock timeout (work was happening but ran long).
       const reason = execResult.timedOut
         ? `Timed out after ${timeoutMs}ms`
-        : `Exited with code ${execResult.exitCode}`;
+        : execResult.watchdogKilled
+          ? `Killed by inactivity watchdog (no stdout/stderr activity for too long — see watchdog_kill log entry)`
+          : `Exited with code ${execResult.exitCode}`;
       return {
         success: false,
         stage: "executor",

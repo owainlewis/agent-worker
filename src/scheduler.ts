@@ -117,7 +117,16 @@ export async function processTicket(options: {
     return;
   }
 
-  const executor = options.executor ?? createExecutor(config.executor.type);
+  // SAM-400: pass the configured inactivity watchdog window to the executor
+  // factory. The factory is invoked here (per-ticket) rather than once at
+  // daemon startup so reconfiguring `watchdog_inactivity_seconds` mid-day
+  // (after a future hot-reload, or just by restarting the daemon between
+  // ticks) takes effect without code changes.
+  const executor =
+    options.executor ??
+    createExecutor(config.executor.type, {
+      watchdogInactivityMs: config.executor.watchdog_inactivity_seconds * 1000,
+    });
 
   // Run pipeline with retries
   let lastResult: Awaited<ReturnType<typeof executePipeline>> | undefined;

@@ -47,8 +47,64 @@ repo:
     expect(config.executor.type).toBe("claude");
     expect(config.executor.timeout_seconds).toBe(300);
     expect(config.executor.retries).toBe(0);
+    // SAM-400: watchdog defaults to 300s (enabled). Catches the silent-hang
+    // failure mode without false-positives on healthy runs.
+    expect(config.executor.watchdog_inactivity_seconds).toBe(300);
     expect(config.log.level).toBe("info");
     expect(config.apiKey).toBe("test-api-key-123");
+  });
+
+  test("parses custom watchdog_inactivity_seconds", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+executor:
+  watchdog_inactivity_seconds: 600
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.executor.watchdog_inactivity_seconds).toBe(600);
+  });
+
+  test("accepts watchdog_inactivity_seconds: 0 (disabled)", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+executor:
+  watchdog_inactivity_seconds: 0
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.executor.watchdog_inactivity_seconds).toBe(0);
+  });
+
+  test("rejects negative watchdog_inactivity_seconds", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+executor:
+  watchdog_inactivity_seconds: -1
+`;
+    expect(() => loadConfig(writeConfig(yaml))).toThrow();
   });
 
   test("parses config with executor fields set", () => {
@@ -168,7 +224,7 @@ linear:
   test("throws when LINEAR_API_KEY is not set", () => {
     delete process.env.LINEAR_API_KEY;
     expect(() => loadConfig(writeConfig(validYaml))).toThrow(
-      "LINEAR_API_KEY environment variable is required"
+      "LINEAR_API_KEY environment variable is required",
     );
   });
 

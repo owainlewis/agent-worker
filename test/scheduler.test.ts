@@ -36,7 +36,12 @@ function makeConfig(overrides?: Partial<Config>): Config {
     },
     repo: { path: "/tmp" },
     hooks: { pre: [], post: [] },
-    executor: { type: "claude", timeout_seconds: 5, retries: 0 },
+    executor: {
+      type: "claude",
+      timeout_seconds: 5,
+      retries: 0,
+      watchdog_inactivity_seconds: 0,
+    },
     log: { level: "info" },
     ...overrides,
   };
@@ -191,7 +196,12 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig({
-        executor: { type: "claude", timeout_seconds: 5, retries: 1 },
+        executor: {
+          type: "claude",
+          timeout_seconds: 5,
+          retries: 1,
+          watchdog_inactivity_seconds: 0,
+        },
       }),
       logger: noopLogger,
       executor: flakyExecutor,
@@ -224,7 +234,12 @@ describe("processTicket", () => {
       ticket,
       provider,
       config: makeConfig({
-        executor: { type: "claude", timeout_seconds: 5, retries: 2 },
+        executor: {
+          type: "claude",
+          timeout_seconds: 5,
+          retries: 2,
+          watchdog_inactivity_seconds: 0,
+        },
       }),
       logger: noopLogger,
       executor: alwaysFailingExecutor,

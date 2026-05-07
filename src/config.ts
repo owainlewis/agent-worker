@@ -75,13 +75,27 @@ const HooksSchema = z
   })
   .default({ pre: [], post: [] });
 
+// SAM-400: `watchdog_inactivity_seconds` is the inactivity window (no
+// stdout/stderr from the child for this many seconds) after which the
+// streaming executor kills the process. 0 disables the watchdog entirely
+// — preserves pre-SAM-400 behavior where only the hard `timeout_seconds`
+// could rescue a hung session. Default 300s catches the silent-hang
+// failure mode (~7.7% of runs in the 24h window before SAM-400 was
+// filed) without false-killing healthy runs (Claude Code emits tool-use
+// activity every few seconds during normal operation).
 const ExecutorSchema = z
   .object({
     type: z.enum(["claude", "codex"]).default("claude"),
     timeout_seconds: z.number().positive().default(300),
     retries: z.number().int().min(0).max(3).default(0),
+    watchdog_inactivity_seconds: z.number().int().nonnegative().default(300),
   })
-  .default({ type: "claude", timeout_seconds: 300, retries: 0 });
+  .default({
+    type: "claude",
+    timeout_seconds: 300,
+    retries: 0,
+    watchdog_inactivity_seconds: 300,
+  });
 
 const LogSchema = z
   .object({

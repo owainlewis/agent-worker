@@ -163,7 +163,12 @@ describe("SAM-481 — resolveRepoCwd", () => {
       },
       repo: repoConfig,
       hooks: { pre: [], post: [] },
-      executor: { type: "claude", timeout_seconds: 300, retries: 0 },
+      executor: {
+        type: "claude",
+        timeout_seconds: 300,
+        retries: 0,
+        watchdog_inactivity_seconds: 0,
+      },
       log: { level: "info" },
     };
   }

@@ -13,10 +13,10 @@ linear:
   # Map your Linear workflow status names to agent lifecycle stages (required)
   # These must match your Linear team's workflow status names exactly
   statuses:
-    ready: "Todo"            # Status that marks a ticket as ready for the agent
+    ready: "Todo" # Status that marks a ticket as ready for the agent
     in_progress: "In Progress" # Status set when the agent picks up a ticket
-    done: "Done"             # Status set when the agent completes a ticket
-    failed: "Canceled"       # Status set when the agent fails a ticket
+    done: "Done" # Status set when the agent completes a ticket
+    failed: "Canceled" # Status set when the agent fails a ticket
 
 repo:
   # Absolute path to the git repository the agent works in (required)
@@ -48,6 +48,13 @@ executor:
 
   # Number of retry attempts on failure, 0-3 (default: 0)
   retries: 0
+
+  # Inactivity watchdog: kill the executor if it produces no stdout/stderr
+  # for this many seconds (default: 300). Catches the silent-hang failure
+  # mode where the agent harness deadlocks without emitting anything,
+  # so the daemon doesn't have to wait the full timeout_seconds window.
+  # Set to 0 to disable the watchdog (only the hard timeout will fire).
+  watchdog_inactivity_seconds: 300
 
 log:
   # Path to log file (optional — omit for stdout-only logging)

@@ -1,52 +1,44 @@
-import type { Logger } from "../logger.ts";
-import type { CodeExecutor, ExecutorResult } from "./executor.ts";
-import { streamToLines } from "./executor.ts";
+import type { CodeExecutor, ExecutorFactoryOptions } from "./executor.ts";
+import { runStreamingProcess } from "./streaming-executor.ts";
 
-export function createClaudeExecutor(): CodeExecutor {
+export function createClaudeExecutor(
+  opts: ExecutorFactoryOptions = {},
+): CodeExecutor {
   return {
     name: "claude",
     needsWorktree: true,
-    async run(prompt: string, cwd: string, timeoutMs: number, logger: Logger): Promise<ExecutorResult> {
+    async run(prompt, cwd, timeoutMs, logger, extras) {
       logger.info("Claude Code started", { timeoutMs });
 
-      const proc = Bun.spawn(["claude", "--print", "--dangerously-skip-permissions", "-p", prompt], {
+      const result = await runStreamingProcess({
+        argv: [
+          "claude",
+          "--print",
+          "--dangerously-skip-permissions",
+          "-p",
+          prompt,
+        ],
         cwd,
-        stdout: "pipe",
-        stderr: "pipe",
+        timeoutMs,
+        watchdogInactivityMs: opts.watchdogInactivityMs ?? 0,
+        logger,
+        executorName: "claude",
+        ticketIdentifier: extras?.ticketIdentifier,
       });
 
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        proc.kill();
-      }, timeoutMs);
-
-      const [stdout, stderr] = await Promise.all([
-        streamToLines(proc.stdout as ReadableStream<Uint8Array>, (line) => {
-          logger.info("claude", { stream: "stdout", line });
-        }),
-        streamToLines(proc.stderr as ReadableStream<Uint8Array>, (line) => {
-          logger.info("claude", { stream: "stderr", line });
-        }),
-      ]);
-
-      const exitCode = await proc.exited;
-      clearTimeout(timer);
-
-      const output = (stdout + "\n" + stderr).trim();
-
-      if (timedOut) {
+      if (result.timedOut) {
         logger.error("Claude Code timed out", { timeoutMs });
-        return { success: false, output, timedOut: true, exitCode: null };
-      }
-
-      if (exitCode !== 0) {
-        logger.error("Claude Code failed", { exitCode });
+      } else if (result.watchdogKilled) {
+        logger.error("Claude Code killed by inactivity watchdog", {
+          inactivityMs: opts.watchdogInactivityMs ?? 0,
+        });
+      } else if (result.exitCode !== 0) {
+        logger.error("Claude Code failed", { exitCode: result.exitCode });
       } else {
         logger.info("Claude Code completed successfully");
       }
 
-      return { success: exitCode === 0, output, timedOut: false, exitCode };
+      return result;
     },
   };
 }

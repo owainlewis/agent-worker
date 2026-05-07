@@ -16,7 +16,7 @@ export type PipelineResult = {
 async function createWorktree(
   repoPath: string,
   branch: string,
-  logger: Logger
+  logger: Logger,
 ): Promise<string> {
   const worktreePath = join(tmpdir(), `agent-worker-${branch}`);
   const cmd = `git worktree add -b ${branch} ${worktreePath} main`;
@@ -44,15 +44,18 @@ async function createWorktree(
 async function removeWorktree(
   repoPath: string,
   worktreePath: string,
-  logger: Logger
+  logger: Logger,
 ): Promise<void> {
   logger.info("Removing worktree", { worktreePath });
 
-  const proc = Bun.spawn(["sh", "-c", `git worktree remove --force ${worktreePath}`], {
-    cwd: repoPath,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = Bun.spawn(
+    ["sh", "-c", `git worktree remove --force ${worktreePath}`],
+    {
+      cwd: repoPath,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
 
   const [exitCode, _, stderr] = await Promise.all([
     proc.exited,
@@ -61,7 +64,10 @@ async function removeWorktree(
   ]);
 
   if (exitCode !== 0) {
-    logger.warn("Failed to remove worktree", { worktreePath, error: stderr.trim() });
+    logger.warn("Failed to remove worktree", {
+      worktreePath,
+      error: stderr.trim(),
+    });
   }
 }
 
@@ -74,8 +80,12 @@ export async function executePipeline(options: {
   timeoutMs: number;
   logger: Logger;
 }): Promise<PipelineResult> {
-  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs, logger } = options;
-  const vars = buildTaskVars(ticket);
+  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs, logger } =
+    options;
+  // SAM-481: pass repoCwd into TaskVars so hooks can interpolate {repo_cwd}.
+  // Critical for per-ticket worktree routing — pull-main.sh needs the SOURCE
+  // repo path (e.g. /Users/.../studio-os), not the temp worktree path.
+  const vars = buildTaskVars(ticket, "", repoCwd);
 
   const useWorktree = executor.needsWorktree;
   let effectiveCwd = repoCwd;
@@ -113,7 +123,12 @@ export async function executePipeline(options: {
 
     // Code executor
     const prompt = `Linear ticket: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
-    const execResult = await executor.run(prompt, effectiveCwd, timeoutMs, logger);
+    const execResult = await executor.run(
+      prompt,
+      effectiveCwd,
+      timeoutMs,
+      logger,
+    );
     if (!execResult.success) {
       const reason = execResult.timedOut
         ? `Timed out after ${timeoutMs}ms`

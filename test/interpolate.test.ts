@@ -70,6 +70,7 @@ describe("interpolate", () => {
     raw_title: "Fix login bug",
     branch: "agent/task-ENG-123",
     worktree: "/tmp/agent-worker-agent-task-ENG-123",
+    repo_cwd: "",
   };
 
   test("replaces all variables", () => {
@@ -108,6 +109,24 @@ describe("interpolate", () => {
   test("replaces {worktree} with the worktree path", () => {
     expect(interpolate("cd {worktree}", vars)).toBe(
       "cd /tmp/agent-worker-agent-task-ENG-123",
+    );
+  });
+
+  test("SAM-481: replaces {repo_cwd} with the resolved source repo path", () => {
+    const v = { ...vars, repo_cwd: "/Users/test/studio-os" };
+    expect(interpolate("./hooks/pull-main.sh {repo_cwd}", v)).toBe(
+      "./hooks/pull-main.sh /Users/test/studio-os",
+    );
+  });
+
+  test("SAM-481: {repo_cwd} and {worktree} are distinct (source vs per-ticket)", () => {
+    const v = {
+      ...vars,
+      repo_cwd: "/Users/test/agent-worker-pilot",
+      worktree: "/var/folders/.../task-SAM-100",
+    };
+    expect(interpolate("source={repo_cwd} wt={worktree}", v)).toBe(
+      "source=/Users/test/agent-worker-pilot wt=/var/folders/.../task-SAM-100",
     );
   });
 });

@@ -16,6 +16,7 @@ const vars: TaskVars = {
   raw_title: "Fix bug",
   branch: "agent/task-ENG-123",
   worktree: "/tmp/agent-worker-agent-task-ENG-123",
+  repo_cwd: "",
 };
 
 describe("runHooks", () => {

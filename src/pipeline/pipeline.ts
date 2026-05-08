@@ -122,7 +122,7 @@ export async function executePipeline(options: {
     }
 
     // Code executor
-    const prompt = `Linear ticket: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
+    const prompt = `Linear ticket: ${ticket.identifier}\nTitle: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
     // SAM-400: pass the ticket identifier so the inactivity watchdog can
     // include it in the structured `watchdog_kill` log entry — required
     // by the SAM-400 acceptance criteria so log consumers can attribute

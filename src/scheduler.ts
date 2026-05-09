@@ -148,6 +148,7 @@ export async function processTicket(options: {
         repoCwd,
         executor,
         timeoutMs: config.executor.timeout_seconds * 1000,
+        promptPrefix: config.executor.prompt_prefix,
         logger,
       });
 

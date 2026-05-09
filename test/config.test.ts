@@ -50,6 +50,7 @@ repo:
     // SAM-400: watchdog defaults to 300s (enabled). Catches the silent-hang
     // failure mode without false-positives on healthy runs.
     expect(config.executor.watchdog_inactivity_seconds).toBe(300);
+    expect(config.executor.prompt_prefix).toBe("");
     expect(config.log.level).toBe("info");
     expect(config.apiKey).toBe("test-api-key-123");
   });
@@ -105,6 +106,29 @@ executor:
   watchdog_inactivity_seconds: -1
 `;
     expect(() => loadConfig(writeConfig(yaml))).toThrow();
+  });
+
+  test("parses custom prompt_prefix", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+executor:
+  prompt_prefix: |
+    First follow the repo shipping workflow.
+    Then run /ship-sameer before exiting.
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.executor.prompt_prefix).toContain(
+      "First follow the repo shipping workflow.",
+    );
+    expect(config.executor.prompt_prefix).toContain("/ship-sameer");
   });
 
   test("parses config with executor fields set", () => {

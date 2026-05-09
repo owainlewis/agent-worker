@@ -168,6 +168,7 @@ describe("SAM-481 — resolveRepoCwd", () => {
         timeout_seconds: 300,
         retries: 0,
         watchdog_inactivity_seconds: 0,
+        prompt_prefix: "",
       },
       log: { level: "info" },
     };

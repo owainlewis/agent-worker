@@ -78,10 +78,19 @@ export async function executePipeline(options: {
   repoCwd: string;
   executor: CodeExecutor;
   timeoutMs: number;
+  promptPrefix?: string;
   logger: Logger;
 }): Promise<PipelineResult> {
-  const { ticket, preHooks, postHooks, repoCwd, executor, timeoutMs, logger } =
-    options;
+  const {
+    ticket,
+    preHooks,
+    postHooks,
+    repoCwd,
+    executor,
+    timeoutMs,
+    promptPrefix,
+    logger,
+  } = options;
   // SAM-481: pass repoCwd into TaskVars so hooks can interpolate {repo_cwd}.
   // Critical for per-ticket worktree routing — pull-main.sh needs the SOURCE
   // repo path (e.g. /Users/.../studio-os), not the temp worktree path.
@@ -122,7 +131,10 @@ export async function executePipeline(options: {
     }
 
     // Code executor
-    const prompt = `Linear ticket: ${ticket.identifier}\nTitle: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
+    const generatedPrompt = `Linear ticket: ${ticket.identifier}\nTitle: ${ticket.title}\n\n${ticket.description || "No description provided."}`;
+    const prompt = promptPrefix
+      ? `${promptPrefix.trimEnd()}\n\n${generatedPrompt}`
+      : generatedPrompt;
     // SAM-400: pass the ticket identifier so the inactivity watchdog can
     // include it in the structured `watchdog_kill` log entry — required
     // by the SAM-400 acceptance criteria so log consumers can attribute

@@ -89,12 +89,14 @@ const ExecutorSchema = z
     timeout_seconds: z.number().positive().default(300),
     retries: z.number().int().min(0).max(3).default(0),
     watchdog_inactivity_seconds: z.number().int().nonnegative().default(300),
+    prompt_prefix: z.string().default(""),
   })
   .default({
     type: "claude",
     timeout_seconds: 300,
     retries: 0,
     watchdog_inactivity_seconds: 300,
+    prompt_prefix: "",
   });
 
 const LogSchema = z

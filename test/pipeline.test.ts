@@ -115,6 +115,37 @@ describe("executePipeline", () => {
     expect(result.output).toBe("mock output");
   });
 
+  test("prepends prompt_prefix to generated ticket prompt", async () => {
+    let capturedPrompt = "";
+    const result = await executePipeline({
+      ticket,
+      preHooks: [],
+      postHooks: [],
+      repoCwd: repoDir,
+      executor: mockExecutor({
+        run: async (prompt) => {
+          capturedPrompt = prompt;
+          return {
+            success: true,
+            output: "mock output",
+            timedOut: false,
+            exitCode: 0,
+          };
+        },
+      }),
+      timeoutMs: 5000,
+      promptPrefix: "Invoke /ship-sameer after committing.\n",
+      logger: noopLogger,
+    });
+
+    expect(result.success).toBe(true);
+    expect(capturedPrompt).toStartWith(
+      "Invoke /ship-sameer after committing.\n\nLinear ticket: ENG-100",
+    );
+    expect(capturedPrompt).toContain("Title: Test ticket");
+    expect(capturedPrompt).toContain("Do something");
+  });
+
   test("fails at executor stage when executor fails", async () => {
     const result = await executePipeline({
       ticket,

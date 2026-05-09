@@ -56,6 +56,10 @@ executor:
   # Set to 0 to disable the watchdog (only the hard timeout will fire).
   watchdog_inactivity_seconds: 300
 
+  # Optional text prepended to every generated Linear-ticket prompt.
+  # Use this for per-daemon operating instructions without editing repo docs.
+  prompt_prefix: ""
+
 log:
   # Path to log file (optional — omit for stdout-only logging)
   file: "./agent-worker.log"

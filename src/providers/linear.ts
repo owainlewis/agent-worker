@@ -13,6 +13,25 @@ type StatusMap = {
   failed: string;
 };
 
+type LabelFilterOptions = {
+  requiredLabels?: string[];
+  excludedLabels?: string[];
+};
+
+export function labelFilterAllowsTicket(
+  labels: string[],
+  options: LabelFilterOptions,
+): boolean {
+  const present = new Set(labels);
+  const hasRequiredLabels = (options.requiredLabels ?? []).every((label) =>
+    present.has(label),
+  );
+  const hasExcludedLabels = (options.excludedLabels ?? []).some((label) =>
+    present.has(label),
+  );
+  return hasRequiredLabels && !hasExcludedLabels;
+}
+
 async function withBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = MAX_BACKOFF_RETRIES,
@@ -54,6 +73,9 @@ export function createLinearProvider(options: {
    */
   projectIds?: string[];
   statuses: StatusMap;
+  requiredLabels?: string[];
+  excludedLabels?: string[];
+  targetIdentifier?: string;
 }): TicketProvider {
   // Normalize to a single canonical list. Backward compat: projectId alone →
   // projectIds = [projectId]. Both supplied → reject (caller bug).
@@ -105,6 +127,20 @@ export function createLinearProvider(options: {
     for (const issue of issues.nodes) {
       const labelConnection = await issue.labels();
       const labels = labelConnection.nodes.map((l) => l.name);
+      if (
+        options.targetIdentifier &&
+        issue.identifier !== options.targetIdentifier
+      ) {
+        continue;
+      }
+      if (
+        !labelFilterAllowsTicket(labels, {
+          requiredLabels: options.requiredLabels,
+          excludedLabels: options.excludedLabels,
+        })
+      ) {
+        continue;
+      }
       tickets.push({
         id: issue.id,
         identifier: issue.identifier,

@@ -73,6 +73,35 @@ executor:
     expect(config.executor.watchdog_inactivity_seconds).toBe(600);
   });
 
+  test("parses native Linear label filters", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  required_labels:
+    - "repo:studio-os"
+    - "agent:needs-fix"
+  excluded_labels:
+    - "agent:blocked"
+    - "agent:working"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.linear.required_labels).toEqual([
+      "repo:studio-os",
+      "agent:needs-fix",
+    ]);
+    expect(config.linear.excluded_labels).toEqual([
+      "agent:blocked",
+      "agent:working",
+    ]);
+  });
+
   test("accepts watchdog_inactivity_seconds: 0 (disabled)", () => {
     const yaml = `
 linear:

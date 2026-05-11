@@ -104,6 +104,31 @@ Ticket body follows.
 
 `;
 
+const CODEX_FIXER_BRANCH_OVERRIDE = `FIXER LANE OVERRIDE:
+
+The ticket prompt identifies this as the Studio OS fixer lane. That means the
+work usually already has an open PR and an existing branch.
+
+- First inspect the ticket, PR, and current git branches to find the linked PR
+  branch.
+- If a linked PR branch exists, reuse the existing PR branch.
+- Do NOT force-delete or recreate an existing linked PR branch.
+- Push the fixer commit to that existing PR branch.
+- Only create a new agent/task-<TICKET-ID> branch and PR when no linked PR
+  exists or the linked PR is closed and cannot be reopened.
+
+This override supersedes any generic new-ticket branch creation instruction
+below for fixer-lane runs.
+
+`;
+
+export function buildCodexPrompt(prompt: string): string {
+  const isFixerLane =
+    prompt.includes("codex-fixer.md") ||
+    prompt.toLowerCase().includes("fixer lane");
+  return `${CODEX_SHIP_PRELUDE}${isFixerLane ? CODEX_FIXER_BRANCH_OVERRIDE : ""}${prompt}`;
+}
+
 export function createCodexExecutor(
   opts: ExecutorFactoryOptions = {},
 ): CodeExecutor {
@@ -113,7 +138,7 @@ export function createCodexExecutor(
     async run(prompt, cwd, timeoutMs, logger, extras) {
       logger.info("Codex started", { timeoutMs });
 
-      const fullPrompt = `${CODEX_SHIP_PRELUDE}${prompt}`;
+      const fullPrompt = buildCodexPrompt(prompt);
 
       const result = await runStreamingProcess({
         argv: [

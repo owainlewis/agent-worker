@@ -23,6 +23,8 @@ const LinearSchema = z
   .object({
     project_id: z.string().optional(),
     project_ids: z.array(z.string()).optional(),
+    required_labels: z.array(z.string()).default([]),
+    excluded_labels: z.array(z.string()).default([]),
     poll_interval_seconds: z.number().positive().default(60),
     statuses: StatusesSchema,
   })

@@ -1,5 +1,8 @@
 import { describe, test, expect } from "bun:test";
-import { createCodexExecutor } from "../src/pipeline/codex-executor.ts";
+import {
+  buildCodexPrompt,
+  createCodexExecutor,
+} from "../src/pipeline/codex-executor.ts";
 import type { Logger } from "../src/logger.ts";
 
 const noopLogger: Logger = {
@@ -18,6 +21,15 @@ describe("createCodexExecutor", () => {
   test("needsWorktree is false", () => {
     const executor = createCodexExecutor();
     expect(executor.needsWorktree).toBe(false);
+  });
+
+  test("fixer lane prompt overrides branch recreation with branch reuse", () => {
+    const prompt = buildCodexPrompt(
+      "Read prompts/codex-fixer.md. You are in the fixer lane.\n\nLinear ticket: SAM-424",
+    );
+    expect(prompt).toContain("FIXER LANE OVERRIDE");
+    expect(prompt).toContain("reuse the existing PR branch");
+    expect(prompt).toContain("Do NOT force-delete or recreate");
   });
 
   test("returns correct shape on failure (codex not installed)", async () => {

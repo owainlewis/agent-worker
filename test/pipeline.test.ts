@@ -20,6 +20,8 @@ const ticket: Ticket = {
   identifier: "ENG-100",
   title: "Test ticket",
   description: "Do something",
+  labels: [],
+  projectId: "proj-1",
 };
 
 function mockExecutor(overrides?: Partial<CodeExecutor>): CodeExecutor {

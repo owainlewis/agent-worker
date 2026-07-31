@@ -15,6 +15,8 @@ const testTicket: Ticket = {
   identifier: "ENG-100",
   title: "Test",
   description: undefined,
+  labels: [],
+  projectId: "proj-1",
 };
 
 describe("createPoller", () => {
@@ -100,7 +102,9 @@ describe("createPoller", () => {
     const infoMessages: string[] = [];
     const capturingLogger: Logger = {
       debug: () => {},
-      info: (msg: string) => { infoMessages.push(msg); },
+      info: (msg: string) => {
+        infoMessages.push(msg);
+      },
       warn: () => {},
       error: () => {},
     };
@@ -126,8 +130,12 @@ describe("createPoller", () => {
     await poller.start();
 
     expect(infoMessages.length).toBeGreaterThanOrEqual(2);
-    expect(infoMessages[0]).toMatch(/^Poll #1 \(uptime: \d+s\) — checking for tickets\.\.\.$/);
-    expect(infoMessages[1]).toMatch(/^Poll #2 \(uptime: \d+[ms ]*\d*s?\) — checking for tickets\.\.\.$/);
+    expect(infoMessages[0]).toMatch(
+      /^Poll #1 \(uptime: \d+s\) — checking for tickets\.\.\.$/,
+    );
+    expect(infoMessages[1]).toMatch(
+      /^Poll #2 \(uptime: \d+[ms ]*\d*s?\) — checking for tickets\.\.\.$/,
+    );
   });
 
   test("stops when stop() is called", async () => {

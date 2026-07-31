@@ -17,6 +17,8 @@ const ticket: Ticket = {
   identifier: "ENG-100",
   title: "Test ticket",
   description: "Do something",
+  labels: [],
+  projectId: "proj-1",
 };
 
 function makeConfig(overrides?: Partial<Config>): Config {
@@ -63,7 +65,9 @@ function makeProvider(overrides?: Partial<TicketProvider>): {
   };
 }
 
-function mockExecutor(result: Partial<{ success: boolean; output: string }>): CodeExecutor {
+function mockExecutor(
+  result: Partial<{ success: boolean; output: string }>,
+): CodeExecutor {
   return {
     name: "mock",
     needsWorktree: false,
@@ -167,16 +171,28 @@ describe("processTicket", () => {
       run: async () => {
         callCount++;
         if (callCount === 1) {
-          return { success: false, output: "transient error", timedOut: false, exitCode: 1 };
+          return {
+            success: false,
+            output: "transient error",
+            timedOut: false,
+            exitCode: 1,
+          };
         }
-        return { success: true, output: "recovered", timedOut: false, exitCode: 0 };
+        return {
+          success: true,
+          output: "recovered",
+          timedOut: false,
+          exitCode: 0,
+        };
       },
     };
 
     await processTicket({
       ticket,
       provider,
-      config: makeConfig({ executor: { type: "claude", timeout_seconds: 5, retries: 1 } }),
+      config: makeConfig({
+        executor: { type: "claude", timeout_seconds: 5, retries: 1 },
+      }),
       logger: noopLogger,
       executor: flakyExecutor,
     });
@@ -195,14 +211,21 @@ describe("processTicket", () => {
       needsWorktree: false,
       run: async () => {
         callCount++;
-        return { success: false, output: "always fails", timedOut: false, exitCode: 1 };
+        return {
+          success: false,
+          output: "always fails",
+          timedOut: false,
+          exitCode: 1,
+        };
       },
     };
 
     await processTicket({
       ticket,
       provider,
-      config: makeConfig({ executor: { type: "claude", timeout_seconds: 5, retries: 2 } }),
+      config: makeConfig({
+        executor: { type: "claude", timeout_seconds: 5, retries: 2 },
+      }),
       logger: noopLogger,
       executor: alwaysFailingExecutor,
     });

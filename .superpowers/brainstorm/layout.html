@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent-worker UI — Layout Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; padding: 32px 24px; }
+
+  h1 { font-size: 18px; font-weight: 600; color: #f0f6fc; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #8b949e; margin-bottom: 32px; }
+
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1100px; }
+  .option { border: 2px solid #21262d; border-radius: 10px; padding: 16px; cursor: pointer; transition: border-color 0.15s; }
+  .option:hover { border-color: #388bfd; }
+  .option.selected { border-color: #388bfd; background: #0d2044; }
+  .option-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #388bfd; text-transform: uppercase; margin-bottom: 8px; }
+  .option h3 { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 4px; }
+  .option p { font-size: 12px; color: #8b949e; margin-bottom: 14px; line-height: 1.5; }
+
+  .wf { border-radius: 6px; overflow: hidden; background: #161b22; border: 1px solid #21262d; }
+  .wf-topbar { background: #1c2128; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #21262d; }
+  .wf-topbar-left { display: flex; align-items: center; gap: 8px; }
+  .wf-logo { width: 14px; height: 14px; background: #388bfd; border-radius: 3px; }
+  .wf-title { font-size: 11px; font-weight: 600; color: #f0f6fc; }
+  .wf-badge { font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 600; background: #1a4731; color: #3fb950; }
+  .wf-btn { font-size: 9px; padding: 3px 8px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; background: #21262d; color: #cdd9e5; }
+
+  .wf-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .wf-row { display: flex; gap: 8px; }
+  .wf-panel { background: #1c2128; border: 1px solid #21262d; border-radius: 5px; padding: 8px; flex: 1; }
+  .wf-panel-title { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8b949e; margin-bottom: 6px; }
+
+  .wf-ticket-active { background: #0d2044; border: 1px solid #1f4e99; border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
+  .wf-ticket-id { font-size: 9px; font-weight: 700; color: #388bfd; }
+  .wf-ticket-title { font-size: 10px; color: #f0f6fc; margin: 2px 0; }
+  .wf-stage-bar { display: flex; gap: 3px; margin-top: 5px; }
+  .wf-stage { font-size: 8px; padding: 2px 5px; border-radius: 3px; background: #21262d; color: #8b949e; }
+  .wf-stage.active { background: #1a4731; color: #3fb950; }
+
+  .wf-log { background: #0d1117; border-radius: 3px; padding: 5px 6px; font-family: monospace; font-size: 8px; color: #3fb950; height: 44px; overflow: hidden; }
+  .wf-log div { margin-bottom: 1px; opacity: 0.8; }
+  .wf-log div:last-child { opacity: 1; }
+
+  .wf-queue-item { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #21262d; }
+  .wf-queue-item:last-child { border-bottom: none; }
+  .wf-q-id { font-size: 9px; font-weight: 700; color: #388bfd; min-width: 40px; }
+  .wf-q-title { font-size: 9px; color: #cdd9e5; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wf-q-btn { font-size: 8px; padding: 1px 5px; background: #21262d; border: none; border-radius: 3px; color: #cdd9e5; }
+
+  .wf-hist-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid #21262d; }
+  .wf-hist-item:last-child { border-bottom: none; }
+  .wf-hist-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: #3fb950; }
+  .dot-red { background: #f85149; }
+  .wf-hist-title { font-size: 9px; color: #cdd9e5; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wf-hist-time { font-size: 8px; color: #8b949e; white-space: nowrap; }
+
+  .wf-config-area { background: #0d1117; border-radius: 3px; padding: 5px 6px; font-family: monospace; font-size: 8px; color: #79c0ff; height: 50px; overflow: hidden; }
+  .wf-config-btns { display: flex; gap: 4px; margin-top: 5px; }
+  .wf-config-btn { font-size: 8px; padding: 2px 7px; border-radius: 3px; border: none; cursor: pointer; }
+  .cfg-save { background: #238636; color: #fff; }
+  .cfg-cancel { background: #21262d; color: #cdd9e5; }
+
+  .wf-sidebar { width: 90px; flex-shrink: 0; }
+  .wf-sidenav { background: #1c2128; border-right: 1px solid #21262d; padding: 8px 6px; height: 100%; }
+  .wf-navitem { font-size: 9px; padding: 4px 6px; border-radius: 4px; margin-bottom: 2px; color: #8b949e; }
+  .wf-navitem.active { background: #1f4e99; color: #79c0ff; }
+
+  .wf-tabs { display: flex; border-bottom: 1px solid #21262d; margin-bottom: 8px; }
+  .wf-tab { font-size: 9px; padding: 4px 10px; color: #8b949e; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .wf-tab.active { color: #388bfd; border-bottom-color: #388bfd; }
+
+  .selection-hint { text-align: center; margin-top: 28px; font-size: 12px; color: #8b949e; }
+  .selected-text { color: #388bfd; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>agent-worker UI — Layout Options</h1>
+<p class="subtitle">Which layout feels right for the dashboard? Click to select, then confirm in the terminal.</p>
+
+<div class="options">
+
+  <!-- Option A -->
+  <div class="option" id="opt-A" onclick="selectOption('A')">
+    <div class="option-label">Option A</div>
+    <h3>Single Page — All Panels</h3>
+    <p>Everything on one screen. Active job + log top-left, queue top-right, history + config bottom row. No navigation needed.</p>
+    <div class="wf">
+      <div class="wf-topbar">
+        <div class="wf-topbar-left">
+          <div class="wf-logo"></div>
+          <span class="wf-title">agent-worker</span>
+          <span class="wf-badge">&#9679; running</span>
+        </div>
+        <button class="wf-btn">Stop Worker</button>
+      </div>
+      <div class="wf-body">
+        <div class="wf-row">
+          <div class="wf-panel" style="flex:1.4">
+            <div class="wf-panel-title">Active Job</div>
+            <div class="wf-ticket-active">
+              <div class="wf-ticket-id">ENG-47</div>
+              <div class="wf-ticket-title">Add dark mode toggle</div>
+              <div class="wf-stage-bar">
+                <div class="wf-stage">pre-hooks</div>
+                <div class="wf-stage active">agent</div>
+                <div class="wf-stage">post-hooks</div>
+              </div>
+            </div>
+            <div class="wf-log">
+              <div>[claude] Reading CLAUDE.md...</div>
+              <div>[claude] Found 3 relevant files</div>
+              <div>[claude] Writing src/settings.ts...</div>
+              <div>[claude] &#9618;</div>
+            </div>
+          </div>
+          <div class="wf-panel" style="flex:1">
+            <div class="wf-panel-title">Queue (3)</div>
+            <div class="wf-queue-item"><span class="wf-q-id">ENG-48</span><span class="wf-q-title">Fix login redirect</span><button class="wf-q-btn">&#9654; Run</button></div>
+            <div class="wf-queue-item"><span class="wf-q-id">ENG-50</span><span class="wf-q-title">Update README</span><button class="wf-q-btn">&#9654; Run</button></div>
+            <div class="wf-queue-item"><span class="wf-q-id">ENG-51</span><span class="wf-q-title">Add rate limit tests</span><button class="wf-q-btn">&#9654; Run</button></div>
+          </div>
+        </div>
+        <div class="wf-row">
+          <div class="wf-panel" style="flex:1.4">
+            <div class="wf-panel-title">Recent History</div>
+            <div class="wf-hist-item"><div class="wf-hist-dot dot-green"></div><span class="wf-hist-title">ENG-45: Add pagination</span><span class="wf-hist-time">2m 34s</span></div>
+            <div class="wf-hist-item"><div class="wf-hist-dot dot-red"></div><span class="wf-hist-title">ENG-44: Migrate DB</span><span class="wf-hist-time">failed</span></div>
+            <div class="wf-hist-item"><div class="wf-hist-dot dot-green"></div><span class="wf-hist-title">ENG-43: Fix null pointer</span><span class="wf-hist-time">1m 12s</span></div>
+          </div>
+          <div class="wf-panel" style="flex:1">
+            <div class="wf-panel-title">Config</div>
+            <div class="wf-config-area">linear:<br>&nbsp;&nbsp;project_id: "abc123"<br>&nbsp;&nbsp;poll_interval: 60<br>executor:<br>&nbsp;&nbsp;type: claude</div>
+            <div class="wf-config-btns">
+              <button class="wf-config-btn cfg-save">Save &amp; Restart</button>
+              <button class="wf-config-btn cfg-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="option" id="opt-B" onclick="selectOption('B')">
+    <div class="option-label">Option B</div>
+    <h3>Sidebar Nav — Focused Views</h3>
+    <p>Left sidebar with pages: Dashboard, Queue, History, Config. Each view is focused and uncluttered. Better for deep-diving one area at a time.</p>
+    <div class="wf">
+      <div class="wf-topbar">
+        <div class="wf-topbar-left">
+          <div class="wf-logo"></div>
+          <span class="wf-title">agent-worker</span>
+          <span class="wf-badge">&#9679; running</span>
+        </div>
+        <button class="wf-btn">Stop</button>
+      </div>
+      <div class="wf-row" style="min-height:160px;">
+        <div class="wf-sidebar">
+          <div class="wf-sidenav">
+            <div class="wf-navitem active">Dashboard</div>
+            <div class="wf-navitem">Queue</div>
+            <div class="wf-navitem">History</div>
+            <div class="wf-navitem">Config</div>
+          </div>
+        </div>
+        <div style="flex:1;padding:8px;">
+          <div class="wf-ticket-active" style="margin-bottom:6px;">
+            <div class="wf-ticket-id">ENG-47</div>
+            <div class="wf-ticket-title">Add dark mode toggle</div>
+            <div class="wf-stage-bar">
+              <div class="wf-stage">pre-hooks</div>
+              <div class="wf-stage active">agent</div>
+              <div class="wf-stage">post-hooks</div>
+            </div>
+          </div>
+          <div class="wf-log" style="height:60px;">
+            <div>[claude] Reading CLAUDE.md...</div>
+            <div>[claude] Found 3 relevant files</div>
+            <div>[claude] Writing src/settings.ts...</div>
+            <div>[claude] Running bun test...</div>
+            <div>[claude] &#9618;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="option" id="opt-C" onclick="selectOption('C')">
+    <div class="option-label">Option C</div>
+    <h3>Pinned Active Job + Tabs Below</h3>
+    <p>Active job and live log always pinned at the top. Tabs below switch between Queue, History, Config. Never lose sight of what's running.</p>
+    <div class="wf">
+      <div class="wf-topbar">
+        <div class="wf-topbar-left">
+          <div class="wf-logo"></div>
+          <span class="wf-title">agent-worker</span>
+          <span class="wf-badge">&#9679; running</span>
+        </div>
+        <button class="wf-btn">Stop</button>
+      </div>
+      <div class="wf-body">
+        <div class="wf-panel">
+          <div class="wf-row" style="align-items:center;gap:10px;">
+            <div style="flex:1;">
+              <div class="wf-ticket-id">ENG-47</div>
+              <div class="wf-ticket-title">Add dark mode toggle</div>
+              <div class="wf-stage-bar" style="margin-top:4px;">
+                <div class="wf-stage">pre-hooks</div>
+                <div class="wf-stage active">agent</div>
+                <div class="wf-stage">post-hooks</div>
+              </div>
+            </div>
+            <div class="wf-log" style="flex:1.5;height:40px;margin:0;">
+              <div>[claude] Writing src/settings.ts...</div>
+              <div>[claude] Running bun test...</div>
+              <div>[claude] &#9618;</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="wf-tabs">
+            <div class="wf-tab active">Queue (3)</div>
+            <div class="wf-tab">History</div>
+            <div class="wf-tab">Config</div>
+          </div>
+          <div class="wf-queue-item"><span class="wf-q-id">ENG-48</span><span class="wf-q-title">Fix login redirect</span><button class="wf-q-btn">&#9654; Run</button></div>
+          <div class="wf-queue-item"><span class="wf-q-id">ENG-50</span><span class="wf-q-title">Update README</span><button class="wf-q-btn">&#9654; Run</button></div>
+          <div class="wf-queue-item"><span class="wf-q-id">ENG-51</span><span class="wf-q-title">Add rate limit tests</span><button class="wf-q-btn">&#9654; Run</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option D -->
+  <div class="option" id="opt-D" onclick="selectOption('D')">
+    <div class="option-label">Option D</div>
+    <h3>Terminal-Style — Log Front and Center</h3>
+    <p>Leans into the developer tool aesthetic. Full-height log stream dominates the view. Compact ticket and queue info on the right. Feels native to the tool.</p>
+    <div class="wf">
+      <div class="wf-topbar">
+        <div class="wf-topbar-left">
+          <div class="wf-logo"></div>
+          <span class="wf-title">agent-worker</span>
+          <span class="wf-badge">&#9679; running</span>
+          <span style="font-size:9px;color:#8b949e;margin-left:8px;">ENG-47 &#183; agent stage</span>
+        </div>
+        <button class="wf-btn">Stop</button>
+      </div>
+      <div class="wf-row" style="height:148px;">
+        <div style="flex:1.8;background:#0d1117;padding:8px;font-family:monospace;font-size:8px;overflow:hidden;">
+          <div style="color:#8b949e;margin-bottom:4px;">[10:42:01] Claimed ENG-47: Add dark mode toggle</div>
+          <div style="color:#3fb950;">[10:42:01] Running pre-hooks...</div>
+          <div style="color:#3fb950;">[10:42:02] pre-hook: git checkout main &#10003;</div>
+          <div style="color:#3fb950;">[10:42:03] Invoking claude agent...</div>
+          <div style="color:#79c0ff;">[claude] Reading CLAUDE.md</div>
+          <div style="color:#79c0ff;">[claude] Searching for relevant files...</div>
+          <div style="color:#79c0ff;">[claude] Writing src/settings.ts...</div>
+          <div style="color:#79c0ff;">[claude] &#9618;</div>
+        </div>
+        <div style="flex:1;border-left:1px solid #21262d;padding:8px;display:flex;flex-direction:column;gap:8px;">
+          <div>
+            <div class="wf-panel-title">Queue</div>
+            <div style="font-size:8px;color:#8b949e;">ENG-48 &#183; ENG-50 &#183; ENG-51</div>
+          </div>
+          <div>
+            <div class="wf-panel-title">History</div>
+            <div style="font-size:8px;color:#3fb950;">ENG-45 &#10003; 2m34s</div>
+            <div style="font-size:8px;color:#f85149;">ENG-44 &#10007; failed</div>
+          </div>
+          <button class="wf-config-btn cfg-cancel" style="width:100%;text-align:center;">Edit Config</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="selection-hint" id="hint">Click a layout to select it, then tell me your choice in the terminal.</p>
+
+<script>
+function selectOption(choice) {
+  document.querySelectorAll('.option').forEach(function(o) { o.classList.remove('selected'); });
+  document.getElementById('opt-' + choice).classList.add('selected');
+  var hint = document.getElementById('hint');
+  hint.textContent = '';
+  var span = document.createElement('span');
+  span.className = 'selected-text';
+  span.textContent = 'Option ' + choice + ' selected';
+  hint.appendChild(span);
+  hint.appendChild(document.createTextNode(' \u2014 confirm in the terminal'));
+}
+</script>
+
+</body>
+</html>

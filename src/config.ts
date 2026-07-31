@@ -35,13 +35,23 @@ const LogSchema = z.object({
   level: z.enum(["debug", "info", "warn", "error"]).default("info"),
 }).default({ level: "info" });
 
-const ConfigFileSchema = z.object({
+const UiSchema = z.object({
+  enabled: z.boolean().default(false),
+  port: z.number().int().positive().default(3030),
+  host: z.string().default("127.0.0.1"),
+  token: z.string().optional(),
+});
+
+export const ConfigFileSchema = z.object({
   linear: LinearSchema,
   repo: RepoSchema,
   hooks: HooksSchema,
   executor: ExecutorSchema,
   log: LogSchema,
+  ui: UiSchema.optional(),
 });
+
+export type ConfigJson = z.infer<typeof ConfigFileSchema>;
 
 type ConfigFile = z.infer<typeof ConfigFileSchema>;
 

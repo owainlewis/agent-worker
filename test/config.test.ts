@@ -204,4 +204,64 @@ repo:
 `;
     expect(() => loadConfig(writeConfig(yaml))).toThrow();
   });
+
+  test("parses ui section with all fields", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+ui:
+  enabled: true
+  port: 4000
+  host: "0.0.0.0"
+  token: "secret"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.ui?.enabled).toBe(true);
+    expect(config.ui?.port).toBe(4000);
+    expect(config.ui?.host).toBe("0.0.0.0");
+    expect(config.ui?.token).toBe("secret");
+  });
+
+  test("ui section defaults port to 3030 and host to 127.0.0.1", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+ui:
+  enabled: true
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.ui?.port).toBe(3030);
+    expect(config.ui?.host).toBe("127.0.0.1");
+    expect(config.ui?.token).toBeUndefined();
+  });
+
+  test("ui section is optional — omitting it leaves ui undefined", () => {
+    const yaml = `
+linear:
+  project_id: "proj-123"
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+repo:
+  path: "/tmp/repo"
+`;
+    const config = loadConfig(writeConfig(yaml));
+    expect(config.ui).toBeUndefined();
+  });
 });

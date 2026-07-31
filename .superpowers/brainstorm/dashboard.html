@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent-worker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#07090f;--bg2:#0b0f1a;--bg3:#111827;--border:#1c2535;--border2:#243048;
+  --text:#dde4f0;--text2:#6b7fa3;--text3:#3d4f6e;
+  --green:#00e87a;--green-dim:rgba(0,232,122,0.08);--green-glow:rgba(0,232,122,0.15);
+  --blue:#4d8dff;--amber:#f59e0b;--amber-dim:rgba(245,158,11,0.1);
+  --red:#f04452;--red-dim:rgba(240,68,82,0.1);--radius:8px;--sidebar-w:220px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;height:100vh;overflow:hidden;}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.logo-mark{width:28px;height:28px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 16px var(--green-glow);}
+.logo-mark svg{width:14px;height:14px;}
+.logo-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.02em;}
+.logo-version{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:1px;}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px;}
+.nav-section-label{font-size:9px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);padding:10px 10px 6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:13.5px;transition:all 0.15s;user-select:none;}
+.nav-item:hover{background:var(--bg3);color:var(--text);}
+.nav-item.active{background:var(--green-dim);color:var(--green);font-weight:500;}
+.nav-icon{width:16px;height:16px;flex-shrink:0;opacity:0.7;}
+.nav-item.active .nav-icon{opacity:1;}
+.nav-badge{margin-left:auto;font-size:10px;background:var(--bg3);color:var(--text2);padding:1px 6px;border-radius:20px;font-family:'JetBrains Mono',monospace;}
+.nav-item.active .nav-badge{background:rgba(0,232,122,0.15);color:var(--green);}
+.sidebar-status{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 8px var(--green);animation:pulse-dot 2s ease-in-out infinite;}
+.status-dot.stopped{background:var(--red);box-shadow:0 0 8px var(--red);animation:none;}
+@keyframes pulse-dot{0%,100%{opacity:1;box-shadow:0 0 6px var(--green);}50%{opacity:.6;box-shadow:0 0 14px var(--green);}}
+.status-info{flex:1;min-width:0;}
+.status-label{font-size:12px;font-weight:500;color:var(--text);}
+.status-sub{font-size:10px;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-top:1px;}
+.status-btn{font-size:10px;padding:4px 10px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap;}
+.status-btn:hover{border-color:var(--red);color:var(--red);}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.page-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);letter-spacing:-0.03em;}
+.page-sub{font-size:12px;color:var(--text2);margin-top:1px;}
+.topbar-actions{display:flex;gap:8px;align-items:center;}
+.btn{font-size:12px;padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;transition:all 0.15s;white-space:nowrap;}
+.btn:hover{border-color:var(--text3);color:var(--text);}
+.btn-primary{background:var(--green);color:#03100a;border-color:var(--green);font-weight:600;}
+.btn-primary:hover{background:#00f082;border-color:#00f082;color:#03100a;}
+.content{flex:1;overflow-y:auto;padding:24px 28px;display:none;}
+.content.active{display:block;}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;transition:border-color 0.2s;}
+.stat-card:hover{border-color:var(--border2);}
+.stat-label{font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+.stat-value{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--text);letter-spacing:-0.04em;line-height:1;}
+.stat-value.green{color:var(--green);}
+.stat-value.blue{color:var(--blue);}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:5px;}
+.active-job-card{grid-column:1/3;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;transition:border-color 0.3s;}
+.active-job-card.running{border-color:rgba(0,232,122,0.3);box-shadow:0 0 30px rgba(0,232,122,0.04);}
+.active-job-card.running::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:scan 3s ease-in-out infinite;}
+@keyframes scan{0%{opacity:0;transform:scaleX(0.3);}50%{opacity:1;transform:scaleX(1);}100%{opacity:0;transform:scaleX(0.3);}}
+.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-title{font-size:11px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--text2);}
+.running-pill{font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--green);background:var(--green-dim);padding:2px 8px;border-radius:20px;display:flex;align-items:center;gap:4px;}
+.running-pill-dot{width:5px;height:5px;background:var(--green);border-radius:50%;animation:pulse-dot 1.5s infinite;display:inline-block;}
+.idle-pill{font-size:9px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--text2);background:var(--bg3);padding:2px 8px;border-radius:20px;}
+.job-body{padding:16px 18px;}
+.job-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);margin-bottom:4px;}
+.job-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:600;color:var(--text);letter-spacing:-0.02em;margin-bottom:14px;}
+.stage-track{display:flex;gap:6px;margin-bottom:14px;}
+.stage-step{font-size:10px;font-weight:500;color:var(--text3);padding:4px 10px;border-radius:4px;background:var(--bg);border:1px solid var(--border);transition:all 0.3s;}
+.stage-step.done{color:var(--green);background:var(--green-dim);border-color:rgba(0,232,122,0.2);}
+.stage-step.active{color:var(--amber);background:var(--amber-dim);border-color:rgba(245,158,11,0.2);animation:stage-pulse 1.5s ease-in-out infinite;}
+@keyframes stage-pulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0);}50%{box-shadow:0 0 8px rgba(245,158,11,0.2);}}
+.log-pane{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:10px 12px;height:110px;overflow:hidden;position:relative;}
+.log-pane::after{content:'';position:absolute;bottom:0;left:0;right:0;height:30px;background:linear-gradient(transparent,var(--bg));pointer-events:none;}
+.log-line{font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.7;color:var(--text2);opacity:0;transform:translateY(4px);animation:log-in 0.3s ease forwards;}
+@keyframes log-in{to{opacity:1;transform:translateY(0);}}
+.log-line.claude{color:var(--green);}
+.log-line.system{color:var(--text3);}
+.log-line.success-line{color:var(--green);}
+.log-line.error-line{color:var(--red);}
+.cursor{display:inline-block;width:6px;height:11px;background:var(--green);vertical-align:text-bottom;animation:blink 1s step-end infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+.queue-mini{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);}
+.queue-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);transition:background 0.15s;cursor:default;}
+.queue-item:last-child{border-bottom:none;}
+.queue-item:hover{background:var(--bg3);}
+.q-id{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--blue);min-width:48px;}
+.q-title{font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.q-priority{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.prio-high-dot{background:var(--red);}
+.prio-med-dot{background:var(--amber);}
+.prio-low-dot{background:var(--text3);}
+.q-run-btn{font-size:10px;padding:3px 9px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:'JetBrains Mono',monospace;opacity:0;transition:all 0.15s;}
+.queue-item:hover .q-run-btn{opacity:1;}
+.q-run-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+.history-card{grid-column:1/4;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.hist-row{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--border);transition:background 0.15s;}
+.hist-row:last-child{border-bottom:none;}
+.hist-row:hover{background:rgba(255,255,255,0.015);}
+.hist-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.hist-dot-ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.hist-dot-fail{background:var(--red);box-shadow:0 0 5px var(--red);}
+.hist-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);min-width:55px;}
+.hist-title{font-size:12px;color:var(--text);flex:1;}
+.hist-stage{font-size:10px;color:var(--text2);min-width:70px;}
+.hist-dur{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);min-width:55px;text-align:right;}
+.hist-time{font-size:10px;color:var(--text3);min-width:60px;text-align:right;}
+.hist-tag{font-size:9px;font-weight:500;letter-spacing:0.04em;padding:2px 7px;border-radius:4px;}
+.tag-ok{background:var(--green-dim);color:var(--green);}
+.tag-fail{background:var(--red-dim);color:var(--red);}
+.cancel-btn{margin-left:auto;font-size:10px;padding:3px 10px;border-radius:4px;border:1px solid var(--red-dim);color:var(--red);background:transparent;cursor:pointer;font-family:'DM Sans',sans-serif;opacity:0;transition:all 0.15s;}
+.active-job-card:hover .cancel-btn{opacity:1;}
+.cancel-btn:hover{background:var(--red-dim);}
+.queue-table{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+.qt-header{display:grid;grid-template-columns:60px 1fr 90px 80px 90px;gap:12px;padding:10px 18px;border-bottom:1px solid var(--border);font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);}
+.qt-row{display:grid;grid-template-columns:60px 1fr 90px 80px 90px;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.15s;}
+.qt-row:last-child{border-bottom:none;}
+.qt-row:hover{background:var(--bg3);}
+.qt-id{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);}
+.qt-title{font-size:12.5px;color:var(--text);}
+.prio-badge{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:500;}
+.prio-urgent{background:rgba(240,68,82,0.12);color:var(--red);}
+.prio-high-badge{background:rgba(245,158,11,0.12);color:var(--amber);}
+.prio-normal{background:var(--bg3);color:var(--text2);}
+.qt-actions{display:flex;gap:6px;justify-content:flex-end;}
+.qt-btn{font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s;}
+.qt-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+.hist-full{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.hist-full-row{display:grid;grid-template-columns:18px 60px 1fr 90px 70px 80px 60px;gap:14px;padding:12px 18px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.15s;}
+.hist-full-row.hdr{font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);padding:10px 18px;}
+.hist-full-row:not(.hdr):hover{background:var(--bg3);}
+.hist-full-row:last-child{border-bottom:none;}
+.config-grid{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start;}
+.config-editor{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.config-textarea{width:100%;background:var(--bg);border:none;outline:none;color:var(--green);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8;padding:16px 18px;resize:none;height:400px;display:block;}
+.config-actions{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+.config-help{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.config-help-title{font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text2);margin-bottom:12px;}
+.config-field{margin-bottom:14px;}
+.config-field-key{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);margin-bottom:3px;}
+.config-field-desc{font-size:11px;color:var(--text2);line-height:1.5;}
+.code{color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:10px;}
+.section-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text);letter-spacing:-0.01em;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.section-count{font-size:10px;background:var(--bg3);color:var(--text2);padding:1px 7px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-weight:400;}
+.empty-job{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:8px;}
+.empty-text{font-size:13px;color:var(--text2);}
+.empty-sub{font-size:11px;color:var(--text3);}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 7h10M7 2l5 5-5 5" stroke="#03100a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">agent-worker</div>
+      <div class="logo-version">v0.1.0</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Monitor</div>
+    <div class="nav-item active" data-view="dashboard">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>
+      Dashboard
+      <span class="nav-badge">live</span>
+    </div>
+    <div class="nav-item" data-view="queue">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h7"/></svg>
+      Queue
+      <span class="nav-badge" id="badge-queue">3</span>
+    </div>
+    <div class="nav-item" data-view="history">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+      History
+    </div>
+    <div class="nav-section-label" style="margin-top:6px;">Configure</div>
+    <div class="nav-item" data-view="config">
+      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+      Config
+    </div>
+  </nav>
+  <div class="sidebar-status">
+    <div class="status-dot" id="status-dot"></div>
+    <div class="status-info">
+      <div class="status-label" id="status-label">Running</div>
+      <div class="status-sub" id="status-sub">polling every 60s</div>
+    </div>
+    <button class="status-btn" id="toggle-btn">Stop</button>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="page-title">Dashboard</div>
+      <div class="page-sub" id="page-sub">Real-time view of your agent worker</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" id="refresh-btn">&#8635; Refresh queue</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="content active" id="view-dashboard">
+    <div class="dash-grid">
+      <div class="stat-card">
+        <div class="stat-label">Runs today</div>
+        <div class="stat-value green">12</div>
+        <div class="stat-sub">+3 from yesterday</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Success rate</div>
+        <div class="stat-value">91%</div>
+        <div class="stat-sub">11 of 12 completed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg duration</div>
+        <div class="stat-value blue">2m 18s</div>
+        <div class="stat-sub">Last 10 runs</div>
+      </div>
+
+      <div class="active-job-card running" id="active-card">
+        <div class="card-header">
+          <div class="card-title">Active Job</div>
+          <div class="running-pill"><span class="running-pill-dot"></span>Running</div>
+          <button class="cancel-btn" id="cancel-btn">&#10005; Cancel</button>
+        </div>
+        <div class="job-body" id="job-body">
+          <div class="job-id">ENG-47</div>
+          <div class="job-title">Add dark mode toggle to user settings panel</div>
+          <div class="stage-track">
+            <div class="stage-step done">&#10003; pre-hooks</div>
+            <div class="stage-step active" id="stage-agent">&#9654; agent</div>
+            <div class="stage-step" id="stage-post">post-hooks</div>
+          </div>
+          <div class="log-pane" id="log-pane"></div>
+        </div>
+      </div>
+
+      <div class="queue-mini">
+        <div class="card-header">
+          <div class="card-title">Queue</div>
+          <span class="nav-badge" style="margin-left:auto;">3 waiting</span>
+        </div>
+        <div class="queue-item">
+          <div class="q-priority prio-high-dot"></div>
+          <div class="q-id">ENG-48</div>
+          <div class="q-title">Fix OAuth redirect loop on mobile</div>
+          <button class="q-run-btn">&#9654; run</button>
+        </div>
+        <div class="queue-item">
+          <div class="q-priority prio-med-dot"></div>
+          <div class="q-id">ENG-50</div>
+          <div class="q-title">Update API documentation</div>
+          <button class="q-run-btn">&#9654; run</button>
+        </div>
+        <div class="queue-item">
+          <div class="q-priority prio-low-dot"></div>
+          <div class="q-id">ENG-51</div>
+          <div class="q-title">Add rate limit tests for /api/v1</div>
+          <button class="q-run-btn">&#9654; run</button>
+        </div>
+      </div>
+
+      <div class="history-card">
+        <div class="card-header"><div class="card-title">Recent History</div></div>
+        <div class="hist-row">
+          <div class="hist-dot hist-dot-ok"></div>
+          <div class="hist-id">ENG-45</div>
+          <div class="hist-title">Add pagination to /users endpoint</div>
+          <div class="hist-stage">post-hooks</div>
+          <div class="hist-dur">2m 34s</div>
+          <div class="hist-time">10:38 AM</div>
+          <div class="hist-tag tag-ok">done</div>
+        </div>
+        <div class="hist-row">
+          <div class="hist-dot hist-dot-fail"></div>
+          <div class="hist-id">ENG-44</div>
+          <div class="hist-title">Migrate users table to new schema</div>
+          <div class="hist-stage" style="color:var(--red)">post-hooks</div>
+          <div class="hist-dur">4m 12s</div>
+          <div class="hist-time">10:31 AM</div>
+          <div class="hist-tag tag-fail">failed</div>
+        </div>
+        <div class="hist-row">
+          <div class="hist-dot hist-dot-ok"></div>
+          <div class="hist-id">ENG-43</div>
+          <div class="hist-title">Fix null pointer in auth middleware</div>
+          <div class="hist-stage">post-hooks</div>
+          <div class="hist-dur">1m 08s</div>
+          <div class="hist-time">10:18 AM</div>
+          <div class="hist-tag tag-ok">done</div>
+        </div>
+        <div class="hist-row">
+          <div class="hist-dot hist-dot-ok"></div>
+          <div class="hist-id">ENG-41</div>
+          <div class="hist-title">Add TypeScript strict mode to tsconfig</div>
+          <div class="hist-stage">post-hooks</div>
+          <div class="hist-dur">0m 47s</div>
+          <div class="hist-time">9:55 AM</div>
+          <div class="hist-tag tag-ok">done</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div class="content" id="view-queue">
+    <div class="section-title">Waiting for pickup <span class="section-count">3</span></div>
+    <div class="queue-table">
+      <div class="qt-header"><div>ID</div><div>Title</div><div>Priority</div><div>Created</div><div>Actions</div></div>
+      <div class="qt-row">
+        <div class="qt-id">ENG-48</div>
+        <div class="qt-title">Fix OAuth redirect loop on mobile Safari</div>
+        <div><span class="prio-badge prio-urgent">Urgent</span></div>
+        <div style="font-size:11px;color:var(--text2)">2h ago</div>
+        <div class="qt-actions"><button class="qt-btn">&#9654; Trigger</button></div>
+      </div>
+      <div class="qt-row">
+        <div class="qt-id">ENG-50</div>
+        <div class="qt-title">Update API documentation for v2 endpoints</div>
+        <div><span class="prio-badge prio-high-badge">High</span></div>
+        <div style="font-size:11px;color:var(--text2)">4h ago</div>
+        <div class="qt-actions"><button class="qt-btn">&#9654; Trigger</button></div>
+      </div>
+      <div class="qt-row">
+        <div class="qt-id">ENG-51</div>
+        <div class="qt-title">Add rate limit integration tests for /api/v1</div>
+        <div><span class="prio-badge prio-normal">Normal</span></div>
+        <div style="font-size:11px;color:var(--text2)">6h ago</div>
+        <div class="qt-actions"><button class="qt-btn">&#9654; Trigger</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="content" id="view-history">
+    <div class="section-title">Run history <span class="section-count">12 today</span></div>
+    <div class="hist-full">
+      <div class="hist-full-row hdr"><div></div><div>ID</div><div>Title</div><div>Stage</div><div>Duration</div><div>Time</div><div>Status</div></div>
+      <div class="hist-full-row">
+        <div class="hist-dot" style="background:var(--amber);box-shadow:0 0 5px var(--amber)"></div>
+        <div class="hist-id">ENG-47</div><div class="hist-title" style="color:var(--amber)">Add dark mode toggle... (running)</div>
+        <div class="hist-stage" style="color:var(--amber)">agent</div><div class="hist-dur">—</div>
+        <div class="hist-time">10:42 AM</div><div class="hist-tag" style="background:var(--amber-dim);color:var(--amber)">active</div>
+      </div>
+      <div class="hist-full-row"><div class="hist-dot hist-dot-ok"></div><div class="hist-id">ENG-45</div><div class="hist-title">Add pagination to /users endpoint</div><div class="hist-stage">post-hooks</div><div class="hist-dur">2m 34s</div><div class="hist-time">10:38 AM</div><div class="hist-tag tag-ok">done</div></div>
+      <div class="hist-full-row"><div class="hist-dot hist-dot-fail"></div><div class="hist-id">ENG-44</div><div class="hist-title">Migrate users table to new schema</div><div class="hist-stage" style="color:var(--red)">post-hooks</div><div class="hist-dur">4m 12s</div><div class="hist-time">10:31 AM</div><div class="hist-tag tag-fail">failed</div></div>
+      <div class="hist-full-row"><div class="hist-dot hist-dot-ok"></div><div class="hist-id">ENG-43</div><div class="hist-title">Fix null pointer in auth middleware</div><div class="hist-stage">post-hooks</div><div class="hist-dur">1m 08s</div><div class="hist-time">10:18 AM</div><div class="hist-tag tag-ok">done</div></div>
+      <div class="hist-full-row"><div class="hist-dot hist-dot-ok"></div><div class="hist-id">ENG-41</div><div class="hist-title">Add TypeScript strict mode to tsconfig</div><div class="hist-stage">post-hooks</div><div class="hist-dur">0m 47s</div><div class="hist-time">9:55 AM</div><div class="hist-tag tag-ok">done</div></div>
+      <div class="hist-full-row"><div class="hist-dot hist-dot-ok"></div><div class="hist-id">ENG-40</div><div class="hist-title">Refactor user service into smaller modules</div><div class="hist-stage">post-hooks</div><div class="hist-dur">3m 22s</div><div class="hist-time">9:40 AM</div><div class="hist-tag tag-ok">done</div></div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="content" id="view-config">
+    <div class="section-title">Configuration</div>
+    <div class="config-grid">
+      <div class="config-editor">
+        <div class="card-header">
+          <div class="card-title">agent-worker.yaml</div>
+          <span style="font-size:10px;color:var(--text3);margin-left:auto;font-family:'JetBrains Mono',monospace;">last saved 10:30 AM</span>
+        </div>
+        <textarea class="config-textarea" spellcheck="false">linear:
+  project_id: "e816ab85-bb85-4dd5-81cc"
+  poll_interval_seconds: 60
+  statuses:
+    ready: "Todo"
+    in_progress: "In Progress"
+    done: "Done"
+    failed: "Canceled"
+
+repo:
+  path: "/Users/robin/Desktop/my-project"
+
+hooks:
+  pre: []
+  post:
+    - "git add -A"
+    - "git commit -m '{id}: {raw_title}'"
+    - "git push origin {branch}"
+    - "gh pr create --title '{id}: {raw_title}' --body 'Fixes {id}.' --base main"
+
+executor:
+  type: claude
+  timeout_seconds: 300
+  retries: 0
+
+log:
+  file: "./agent-worker.log"</textarea>
+        <div class="config-actions">
+          <button class="btn btn-primary">Save &amp; Restart</button>
+          <button class="btn">Discard</button>
+        </div>
+      </div>
+      <div class="config-help">
+        <div class="config-help-title">Quick Reference</div>
+        <div class="config-field">
+          <div class="config-field-key">linear.project_id</div>
+          <div class="config-field-desc">UUID of your Linear project. Find it in the project URL.</div>
+        </div>
+        <div class="config-field">
+          <div class="config-field-key">executor.type</div>
+          <div class="config-field-desc">Agent harness: <span class="code">claude</span> or <span class="code">codex</span></div>
+        </div>
+        <div class="config-field">
+          <div class="config-field-key">hook variables</div>
+          <div class="config-field-desc">
+            <span class="code">{id}</span> ENG-42 &nbsp;
+            <span class="code">{title}</span> slugified &nbsp;
+            <span class="code">{branch}</span> agent/task-ENG-42
+          </div>
+        </div>
+        <div class="config-field">
+          <div class="config-field-key">executor.retries</div>
+          <div class="config-field-desc">Retry full pipeline on failure. Max 3. Default 0.</div>
+        </div>
+        <div class="config-field">
+          <div class="config-field-key">executor.timeout_seconds</div>
+          <div class="config-field-desc">Kill agent if it exceeds this. Default 300s.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+var viewMeta = {
+  dashboard: { title: 'Dashboard', sub: 'Real-time view of your agent worker' },
+  queue:     { title: 'Queue',     sub: 'Tickets waiting to be picked up' },
+  history:   { title: 'History',   sub: 'Completed and failed runs' },
+  config:    { title: 'Config',    sub: 'Edit agent-worker.yaml' }
+};
+
+document.querySelectorAll('.nav-item').forEach(function(el) {
+  el.addEventListener('click', function() {
+    var view = el.getAttribute('data-view');
+    document.querySelectorAll('.content').forEach(function(c) { c.classList.remove('active'); });
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    var target = document.getElementById('view-' + view);
+    if (target) target.classList.add('active');
+    el.classList.add('active');
+    var meta = viewMeta[view];
+    if (meta) {
+      document.getElementById('page-title').textContent = meta.title;
+      document.getElementById('page-sub').textContent = meta.sub;
+    }
+  });
+});
+
+var isRunning = true;
+document.getElementById('toggle-btn').addEventListener('click', function() {
+  isRunning = !isRunning;
+  var dot = document.getElementById('status-dot');
+  var label = document.getElementById('status-label');
+  var sub = document.getElementById('status-sub');
+  var btn = document.getElementById('toggle-btn');
+  if (isRunning) {
+    dot.classList.remove('stopped');
+    label.textContent = 'Running';
+    sub.textContent = 'polling every 60s';
+    btn.textContent = 'Stop';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  } else {
+    dot.classList.add('stopped');
+    label.textContent = 'Stopped';
+    sub.textContent = 'worker paused';
+    btn.textContent = 'Start';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+  }
+});
+
+document.getElementById('cancel-btn').addEventListener('click', function() {
+  var card = document.getElementById('active-card');
+  var body = document.getElementById('job-body');
+  card.classList.remove('running');
+  body.textContent = '';
+  var empty = document.createElement('div');
+  empty.className = 'empty-job';
+  var t = document.createElement('div');
+  t.className = 'empty-text';
+  t.textContent = 'No active job';
+  var s = document.createElement('div');
+  s.className = 'empty-sub';
+  s.textContent = 'Worker will pick up next ticket on next poll';
+  empty.appendChild(t);
+  empty.appendChild(s);
+  body.appendChild(empty);
+  var pill = card.querySelector('.running-pill');
+  if (pill) {
+    var idle = document.createElement('div');
+    idle.className = 'idle-pill';
+    idle.textContent = 'Idle';
+    pill.parentNode.replaceChild(idle, pill);
+  }
+});
+
+document.getElementById('refresh-btn').addEventListener('click', function() {
+  var badge = document.getElementById('badge-queue');
+  badge.textContent = '...';
+  setTimeout(function() { badge.textContent = '3'; }, 800);
+});
+
+// Log stream
+var logLines = [
+  { text: '[10:42:01] Claimed ENG-47', cls: 'system' },
+  { text: '[10:42:02] pre-hook: git checkout main', cls: '' },
+  { text: '[10:42:02] pre-hook complete', cls: 'success-line' },
+  { text: '[10:42:03] Invoking claude agent...', cls: 'system' },
+  { text: '[claude] Reading CLAUDE.md', cls: 'claude' },
+  { text: '[claude] Searching codebase...', cls: 'claude' },
+  { text: '[claude] Found: src/components/Settings.tsx', cls: 'claude' },
+  { text: '[claude] Writing src/components/ThemeToggle.tsx', cls: 'claude' },
+  { text: '[claude] Writing src/hooks/useTheme.ts', cls: 'claude' },
+  { text: '[claude] Updating src/styles/theme.css', cls: 'claude' },
+  { text: '[claude] Running: bun test', cls: 'claude' },
+  { text: '[claude] Tests: 24 passed, 0 failed', cls: 'success-line' }
+];
+
+var logPane = document.getElementById('log-pane');
+var lineIdx = 0;
+
+function appendLog() {
+  if (!logPane || lineIdx >= logLines.length) return;
+  var line = logLines[lineIdx++];
+  var div = document.createElement('div');
+  div.className = 'log-line' + (line.cls ? ' ' + line.cls : '');
+  div.textContent = line.text;
+
+  // remove old cursor
+  var oldCursor = logPane.querySelector('.cursor');
+  if (oldCursor) oldCursor.parentNode.removeChild(oldCursor);
+
+  logPane.appendChild(div);
+  while (logPane.childElementCount > 10) logPane.removeChild(logPane.firstElementChild);
+
+  if (lineIdx < logLines.length) {
+    var cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    div.appendChild(cursor);
+    setTimeout(appendLog, 800 + Math.random() * 500);
+  }
+
+  // advance stage at line 11
+  if (lineIdx === 11) {
+    var agentStage = document.getElementById('stage-agent');
+    var postStage = document.getElementById('stage-post');
+    if (agentStage) { agentStage.className = 'stage-step done'; agentStage.textContent = '\u2713 agent'; }
+    if (postStage) { postStage.className = 'stage-step active'; postStage.textContent = '\u25B6 post-hooks'; }
+  }
+}
+
+setTimeout(appendLog, 600);
+</script>
+</body>
+</html>
